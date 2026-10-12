@@ -643,6 +643,12 @@ void DigitizationRunner::processRootFiles() {
             std::unique_ptr<std::vector<uint16_t>> redpix_ix = std::make_unique<std::vector<uint16_t>>();
             std::unique_ptr<std::vector<uint16_t>> redpix_iy = std::make_unique<std::vector<uint16_t>>();
             std::unique_ptr<std::vector<uint16_t>> redpix_iz = std::make_unique<std::vector<uint16_t>>();
+
+            //BATMAN: Expected detected signal before final Poisson Sampling
+            const bool save_expected_lambda = config.getBool("save_expected_lambda");     
+            std::vector<uint16_t> expected_ix;
+            std::vector<uint16_t> expected_iy;
+            std::vector<double> expected_lambda_e;
             
              // PMT Waveforms (Fast and Slow) ---
             //std::unique_ptr<std::vector<double>> wav_fast_pmt1 = std::make_unique<std::vector<double>>();
@@ -702,6 +708,20 @@ void DigitizationRunner::processRootFiles() {
             outtree->Branch("redpix_ix", redpix_ix.get());
             outtree->Branch("redpix_iy", redpix_iy.get());
             outtree->Branch("redpix_iz", redpix_iz.get());
+         
+            // BATMAN: optional sparse expected-signal truth.
+            if (save_expected_lambda) {            
+                outtree->Branch("expected_ix", &expected_ix);        
+                outtree->Branch("expected_iy", &expected_iy);         
+                outtree->Branch(
+                    "expected_lambda_e",
+                    &expected_lambda_e
+                );
+            }
+
+
+         
+         
             if (config.getBool("pmt_mode")) {
                 // Create branches for PMT waveforms
                 //outtree->Branch("wav_fast_pmt1", wav_fast_pmt1.get());
