@@ -42,7 +42,10 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                                            float energy,
                                            bool NR_flag,
                                            vector<vector<double>>& image,
-                                           vector<PMTVoxel>& pmt_voxels)
+                                           vector<PMTVoxel>& pmt_voxels,
+                                           vector<std::uint16_t>& expected_ix,
+                                           vector<std::uint16_t>& expected_iy,
+                                           vector<double>& expected_lambda_e)
 {
     // vectorized smearing
     vector<float> S3D_x;
@@ -549,6 +552,11 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
         }
         
         // Applying Poisson smearing + camera response
+        // Optionally save the expected number of detected camera
+        // photoelectrons BEFORE the final Poisson realization. (BATMAN Extension)
+        const bool save_expected_lambda =
+        config.getBool("save_expected_lambda");
+     
         for(unsigned int ii = 0; ii<image.size(); ii++) {
             for(unsigned int jj = 0; jj<image[0].size(); jj++) {
                 if (image[ii][jj] != 0) {
@@ -559,13 +567,31 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                                                         VignMap.GetYaxis()->FindBin(jj)
                                                           );
                     }
-                    
+
+                    // Expected detected camera photoelectrons before the final poisson draw
+                    const double lambda_e =
+                    static_cast<double>(image[ii][jj])
+                    * _vigtmp
+                    * omega
+                    * camera_quantum_efficiency
+                    * optphotons_per_el;
+                    //We store this expectation independently of the realized signal
+
+                    if (save_expected_lambda && lambda_e > 0.0) {
+                        expected_ix.push_back(
+                            static_cast<std::uint16_t>(ii)
+                        );
+        
+                        expected_iy.push_back(
+                            static_cast<std::uint16_t>(jj)
+                        );
+        
+                        expected_lambda_e.push_back(lambda_e);
+                    }
+                     
+                        
                     // Generate number of photons reaching camera
-                    const int _number_of_photons = gRandom->Poisson(static_cast<double>(image[ii][jj])
-                                                                   * _vigtmp
-                                                                   * omega
-                                                                   * camera_quantum_efficiency
-                                                                   * optphotons_per_el);
+                    const int _number_of_photons = gRandom->Poisson(lambda_e);
                     
                     // Average number of electrons
                     const double _mu = static_cast<double>(_number_of_photons) * optcounts_per_photon;
