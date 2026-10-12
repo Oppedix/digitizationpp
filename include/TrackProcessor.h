@@ -12,6 +12,7 @@
 #include "ConfigManager.h"
 #include "TH2F.h"
 #include <vector>
+#include <cstdint>
 #include <string>
 #include <map>
 
@@ -67,7 +68,10 @@ public:
                                float energy,
                                bool NR_flag,
                                std::vector<std::vector<double>>& image,
-                               std::vector<PMTVoxel>& pmt_voxels);
+                               std::vector<PMTVoxel>& pmt_voxels,
+                               std::vector<std::uint16_t>& expected_ix,
+                               std::vector<std::uint16_t>& expected_iy,
+                               std::vector<double>& expected_lambda_e);
 
     /**
      * @brief Applies vignetting correction to a 2D image using a vignette map.
