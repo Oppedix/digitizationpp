@@ -751,6 +751,9 @@ void DigitizationRunner::processRootFiles() {
                 redpix_ix->clear();
                 redpix_iy->clear();
                 redpix_iz->clear();
+                expected_ix.clear();
+                expected_iy.clear();
+                expected_lambda_e.clear();
                 
                 if (config.getBool("pmt_mode")) {
                     wav_fast_pmt1.clear(); wav_fast_pmt2.clear(); wav_fast_pmt3.clear(); wav_fast_pmt4.clear();
@@ -1011,7 +1014,10 @@ void DigitizationRunner::processRootFiles() {
                                                         energy,
                                                         NR_flag,
                                                         array2d_Nph,
-                                                        pmt_voxels
+                                                        pmt_voxels,
+                                                        expected_ix,
+                                                        expected_iy,
+                                                        expected_lambda_e
                                                         )) {
                     std::cerr<<"Warning: DigitizationRunner::processRootFiles: skipping this track because of error from TrackProcessor::computeWithSaturation."<<std::endl;
 
