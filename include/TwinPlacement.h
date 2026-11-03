@@ -12,7 +12,7 @@
 // Geometry and truth placement only: no detector-response RNG is consumed here.
 struct TwinPlacement {
     struct Camera { double x, y, angle; };
-    struct Result { int camera; double dx, dy, dz, target, actual; };
+    struct Result { int camera; double dx, dy, dz, target, actual; bool drift_contained; };
     std::array<Camera,3> cameras;
     std::array<std::array<double,2>,4> depths;
     double width, height, xmin, xmax, ymin, ymax;
@@ -76,7 +76,7 @@ struct TwinPlacement {
         return {c.x+a*x-b*y,c.y+b*x+a*y};
     }
     Result place(const std::string& parent, std::vector<double>& x,std::vector<double>& y,
-                 std::vector<double>& z,const std::vector<double>& weights) const {
+                 std::vector<double>& z,const std::vector<double>& weights,bool require_drift_containment=true) const {
         if(x.empty() || x.size()!=y.size() || x.size()!=z.size() || x.size()!=weights.size())
             throw std::invalid_argument("TWIN empty or mismatched parent hits: "+parent);
         double total=0, weighted=0;
@@ -109,10 +109,11 @@ struct TwinPlacement {
         std::mt19937_64 depth(hash(key+"|depth|"+std::to_string(variant)));
         const auto range=depths[variant];
         const double target=range[0]+(range[1]-range[0])*uniform(depth), dz=target-weighted/total;
-        for(double hit:z) if(hit+dz<0 || hit+dz>500)
+        const bool contained_z=std::all_of(z.begin(),z.end(),[&](double hit){return hit+dz>=0 && hit+dz<=500;});
+        if(require_drift_containment && !contained_z)
             throw std::runtime_error("TWIN full-track drift containment failed: "+parent+" variant "+std::to_string(variant));
         double actual=0;
         for(size_t i=0;i<x.size();++i) { x[i]+=dx; y[i]+=dy; z[i]+=dz; actual+=weights[i]*z[i]; }
-        return {id,dx,dy,dz,target,actual/total};
+        return {id,dx,dy,dz,target,actual/total,contained_z};
     }
 };

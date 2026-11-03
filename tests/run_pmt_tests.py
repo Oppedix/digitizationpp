@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix='pmt-tests-') as directory:
     spans = {
         'storage': ('            // Never resize these outer containers:', '            // ROOT TTree'),
         'branches': ('                for (int i = 0; i < pmt_count; ++i) {', '\n            }\n\n            if (save_mc_first3_hits)'),
-        'reset': ('                    // Skipped/no-light events', '\n                }\n\n                inputtree->GetEntry'),
+        'reset': ('                    // Skipped/no-light events', '\n                }\n\n                if(inputtree->GetEntry'),
         'assign': ('                        for (int i = 0; i < pmt_count; ++i) {', '\n                    }\n'),
     }
     for name, (start, end) in spans.items():

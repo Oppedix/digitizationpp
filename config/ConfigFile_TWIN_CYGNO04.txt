@@ -68,7 +68,7 @@
 'alpha_G'               : 0.0209,    # exponential factor or the Gain saturation model
 
 # Background
-'bckg'                  : True,      # if 'True' background is added
+'bckg'                  : False,      # if 'True' background is added
 'tag'			: 'Data',    # Set 'Data' to download a real pedestal run
 'noiserun'              : '94900;94564;94130',      # pedestal runs to add as background separated by ';'
 'ped_cloud_dir'         : 'LNGS',    # directory inside the cloud bucket where the pedestal run is located
@@ -94,7 +94,7 @@
 'queue'                 : 0,	     # If you are sending to the CNAF queue write 1. The outputfiles will be forced to be written in local folder to be sent to cloud
 'redpix_output'         : True,       # Signal-only sparse pixels + event_info, no camera images/pedestal noise; output digi_RunXXXXX.root. False saves images.
 
-'save_mc_first3_hits'   : True,       # Save first 3 original GEANT hits; generated direction must be joined from MC truth.
+'save_mc_first3_hits'   : False,       # Save first 3 original GEANT hits; generated direction must be joined from MC truth.
 
 ## PMT side
 # PMT simulation parameters
@@ -172,4 +172,17 @@
 'twin_depth_2_max': 350.,
 'twin_depth_3_min': 400.,
 'twin_depth_3_max': 450.,
+
+# ML dataset contract: upstream QF includes electronic secondaries.
+'twin_mc_commit': 'REQUIRED', # Full source-MC build commit, not a guessed revision.
+'twin_primary_pdg': 'REQUIRED', # Homogeneous generated primary; tree1 has no PDG.
+'twin_detector_seed': 2026, # Independent of placement seed.
+'twin_response_id': 0,
+'twin_gas': 'HeCF4_60_40', # Existing drift model; calibrations remain provisional.
+'twin_gas_pressure_mbar': 'REQUIRED', # Audit; does not rescale existing drift/diffusion calibration.
+'twin_gas_temperature_k': 'REQUIRED',
+'twin_noise_mode': 'synthetic', # Offline provisional independent Gaussian sensor noise.
+'twin_pmt_noise_rms_v': 'REQUIRED',
+'twin_pmt_quantum_efficiency': 'REQUIRED', # Per-photon probability; no inherited LIME factor.
+'twin_camera_noise_rms_counts': 'REQUIRED',
 }

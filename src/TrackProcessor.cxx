@@ -105,7 +105,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
         std::chrono::duration<double> dur_criti;
         std::chrono::duration<double> dur_ampli;
         
-        vector<vector<int>> hout(x_n_bin, vector<int>(y_n_bin, 0.0));
+        vector<vector<double>> hout(x_n_bin, vector<double>(y_n_bin, 0.0));
         
         if(map_algorithm) {
             z_n_bin = z_n_bin_MAX;
@@ -199,7 +199,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                     int xx = (key - yy * N - zz) / N / M;
                     // optbeta is multiplied by factors to normalize on volume chosen
                     double n_ph_val = Nph_saturation(val, optA, optbeta*xy_vox_scale*xy_vox_scale*0.1/zbin_dim);
-                    hout[xx][yy]+=n_ph_val;
+                    hout[xx][yy]+= config.getBool("twin_cygno04_mode") ? n_ph_val : static_cast<int>(n_ph_val);
 
                     // --- PMT Simulation Integration ---
                     if (n_ph_val > 0) {
@@ -288,7 +288,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                     int xx = (key - yy * N - zz) / N / M;
                     // optbeta is multiplied by factors to normalize on volume chosen
                     double n_ph_val = Nph_saturation(val, optA, optbeta*xy_vox_scale*xy_vox_scale*0.1/zbin_dim);
-                    hout[xx][yy]+=n_ph_val;
+                    hout[xx][yy]+= config.getBool("twin_cygno04_mode") ? n_ph_val : static_cast<int>(n_ph_val);
                     
                     // --- PMT Simulation Integration ---
                     if (n_ph_val > 0) {
@@ -404,7 +404,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                                     // optbeta is multiplied by factors to normalize on volume chosen
                                     double n_ph_val = Nph_saturation(hc[xx][yy][zz], optA, optbeta*xy_vox_scale*xy_vox_scale*0.1/zbin_dim);
 
-                                    hout[xx][yy] += n_ph_val;
+                                    hout[xx][yy] += config.getBool("twin_cygno04_mode") ? n_ph_val : static_cast<int>(n_ph_val);
                                     
                                     // --- PMT Simulation Integration ---
                                     if (n_ph_val > 0) {
@@ -480,7 +480,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                                     // optbeta is multiplied by factors to normalize on volume chosen
                                     double n_ph_val = Nph_saturation(hc[xx][yy][zz], optA, optbeta*xy_vox_scale*xy_vox_scale*0.1/zbin_dim);
 
-                                    hout[xx][yy] += n_ph_val;
+                                    hout[xx][yy] += config.getBool("twin_cygno04_mode") ? n_ph_val : static_cast<int>(n_ph_val);
 
                                     // --- PMT Simulation Integration ---
                                     if (n_ph_val > 0) {
@@ -566,7 +566,9 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                     }
                     
                     // Generate number of photons reaching camera
-                    const int _number_of_photons = gRandom->Poisson(static_cast<double>(image[ii][jj])
+                    const double _number_of_photons = config.getBool("twin_cygno04_mode")
+                        ? gRandom->PoissonD(image[ii][jj] * _vigtmp * omega * camera_quantum_efficiency * optphotons_per_el)
+                        : gRandom->Poisson(static_cast<double>(image[ii][jj])
                                                                    * _vigtmp
                                                                    * omega
                                                                    * camera_quantum_efficiency
@@ -575,7 +577,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                     // Average number of electrons
                     const double _mu = static_cast<double>(_number_of_photons) * optcounts_per_photon;
 
-                    image[ii][jj] = static_cast<int>(_mu);
+                    image[ii][jj] = config.getBool("twin_cygno04_mode") ? _mu : static_cast<int>(_mu);
                     // Fluctuations of electrons // not needed if we sum random pedestal!!!
                     // if(_mu!=0) {
                     //     const double _smeared = gRandom-> Gaus(_mu, camera_electron_rms*optcounts_per_photon);
@@ -703,7 +705,8 @@ void TrackProcessor::smear_parallel(const vector<double>& x_axis_hit,const vecto
             TRandom3 paralrandom;
             myMutex.lock();
             //deterministic seed from chunk start
-            if(fixedSeed) paralrandom.SetSeed(3+static_cast<UInt_t>(range.begin()));
+            if(config.getBool("twin_cygno04_mode")) paralrandom.SetSeed(1+static_cast<UInt_t>(gRandom->Rndm()*4294967294.));
+            else if(fixedSeed) paralrandom.SetSeed(3+static_cast<UInt_t>(range.begin()));
             else paralrandom.SetSeed(floor(gRandom->Rndm()*10000));
             myMutex.unlock();
             for(auto iterator=range.begin();iterator<range.end();++iterator)

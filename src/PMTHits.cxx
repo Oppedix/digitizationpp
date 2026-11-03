@@ -50,7 +50,8 @@ PhotonPropagation::PhotonPropagation(const vector<double>& x_0,
     num_pmts = validateGeometry(options_);
     if (x_0_.size() != y_0_.size() || x_0_.size() != n_photons_.size() || x_0_.size() != arr_times_.size())
         throw invalid_argument("PMT voxel coordinate, photon and arrival-time sizes must match");
-    gen.seed(rd());
+    auto seed=options_.find("twin_collection_seed");
+    gen.seed(seed==options_.end() ? rd() : std::stoul(seed->second));
 
     r_pmt_sq = std::pow(std::stod(options_.at("pmt_radius")), 2);
     z_pmt_sq = std::pow(std::stod(options_.at("dist_gem_pmt")), 2);

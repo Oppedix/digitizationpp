@@ -136,7 +136,7 @@ public:
                            map<string, vector<double>>& slow_signal);
 
 private:
-    std::mt19937 gen;
+    std::mt19937 gen, noise_gen;
     std::exponential_distribution<double> exp_dist_; /**< Distribution for exponential dispersion. */
     std::normal_distribution<double> transit_dist_;  /**< Distribution for transit time spread. */
 

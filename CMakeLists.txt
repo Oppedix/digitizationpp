@@ -95,3 +95,16 @@ target_link_libraries(joinPeds PUBLIC ${ROOT_LIBRARIES} ${OpenCV_LIBS} s3 curl r
 
 install(TARGETS joinPeds DESTINATION .)
 install(TARGETS digitizationpp DESTINATION .)
+# Capture the source revision at configure time; reconfigure after changing commits.
+execute_process(COMMAND git rev-parse HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE TWIN_COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND git status --porcelain WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE TWIN_DIRTY OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(TWIN_DIRTY AND TWIN_COMMIT)
+    string(APPEND TWIN_COMMIT "-dirty")
+endif()
+if(NOT TWIN_COMMIT)
+    set(TWIN_COMMIT "unversioned")
+endif()
+target_compile_definitions(digitizationpp PRIVATE TWIN_DIGITIZER_COMMIT="${TWIN_COMMIT}")
+target_compile_definitions(joinPeds PRIVATE TWIN_DIGITIZER_COMMIT="${TWIN_COMMIT}")

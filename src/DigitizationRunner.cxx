@@ -30,6 +30,7 @@
 #include "PMTHits.h"
 #include "PMTSignal.h"
 #include "TwinPlacement.h"
+#include "TwinML.h"
 
 using namespace std;
 
@@ -49,7 +50,10 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
     
 
     config.validateAxisMappings();
-    if (config.getBool("twin_cygno04_mode")) TwinPlacement{config.getOptions()};
+    if (config.getBool("twin_cygno04_mode")) {
+        TwinPlacement{config.getOptions()};
+        TwinML::configuration(config.getOptions());
+    }
     if (config.getBool("pmt_mode")) {
         PhotonPropagation::validateGeometry(config.getOptions());
         if (config.getInt("fast_window_len") <= 0 || config.getInt("slow_window_len") <= 0)
@@ -69,7 +73,7 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
     checkDimensionConsistency();
     initSourceDir();
     
-    num_threads = config.getInt("Parallel_threads");
+    num_threads = config.getBool("twin_cygno04_mode") ? 1 : config.getInt("Parallel_threads");
 
     // DEBUG
     // cout<<"Initialized globals:"<<endl;
@@ -225,7 +229,7 @@ void DigitizationRunner::SaveValues(shared_ptr<TFile>& outfile) {
         // DEBUG
         // cout<<key<<": "<<val<<endl;
         
-        if(key!="twin_side" && key!="twin_source_id" && key!="tag"       && key !="Vig_Map" &&
+        if(key!="twin_gas" && key!="twin_noise_mode" && key!="twin_mc_commit" && key!="twin_side" && key!="twin_source_id" && key!="tag"       && key !="Vig_Map" &&
            key!="bckg_path" && key !="ped_cloud_dir" &&
            key!="noiserun"  && key !="bckg_name" &&
            key !="Camera_type" && key!="detector" &&
@@ -454,7 +458,7 @@ void DigitizationRunner::FillRedpix(const std::vector<std::vector<double>>& imag
                 // must be swapped here
                 redpix_ix->push_back(static_cast<uint16_t>(ix));
                 redpix_iy->push_back(static_cast<uint16_t>(iy));
-                redpix_iz->push_back(static_cast<uint16_t>(content));
+                redpix_iz->push_back(static_cast<uint16_t>(config.getBool("twin_cygno04_mode") ? std::min(content,65535.) : content));
                 
             }
         }
@@ -491,7 +495,16 @@ void DigitizationRunner::processRootFiles() {
         cout << "Processing: " << filename << endl;
         
         auto f         = unique_ptr<TFile> {TFile::Open(filename.c_str())};
+        if(!f || f->IsZombie()) throw runtime_error("Cannot open MC input: "+filename);
         auto inputtree = (TTree*)f->Get("nTuple");
+        std::map<int,TwinML::Primary> generated;
+        const string source_file_id=twin_mode ? twin->source+"/"+f->GetUUID().AsString() : "";
+        if(twin_mode) {
+            TwinML::require(inputtree,{"numhits","energyDep","energyDep_QF","particle_type","energyDep_hits_QF",
+                "energyDep_hits_NRQF","energyDep_hits_QF_geant","parentID_hits","trackID_hits","pdgID_hits","x_hits","y_hits","z_hits"});
+            generated=TwinML::primaries((TTree*)f->Get("tree1"));
+            TwinML::uniqueEvents(inputtree);
+        }
         
         int firstentry = config.getInt("start_event");
         if(firstentry < 0) {
@@ -540,7 +553,11 @@ void DigitizationRunner::processRootFiles() {
         Int_t eventnumber;
         Int_t numhits;
         Double_t energyDep;
-        Double_t energyDep_NR;
+        Double_t energyDep_NR,energyDep_QF=0;
+        vector<double>* energyDep_hits_QF=nullptr;
+        vector<double>* energyDep_hits_QF_geant=nullptr;
+        vector<int>* parentID_hits=nullptr;
+        vector<int>* trackID_hits=nullptr;
         vector<int>    *pdgID_hits = 0;
         vector<double> *tracklen_hits = 0;
         vector<double> *px_particle = 0;
@@ -552,22 +569,34 @@ void DigitizationRunner::processRootFiles() {
         vector<double> *y_hits = 0;
         vector<double> *z_hits = 0;
             
-        inputtree->SetBranchAddress("eventnumber", &eventnumber);
-        inputtree->SetBranchAddress("numhits", &numhits);
+        auto bind=[&](const char* name,auto* address) {
+            if(inputtree->SetBranchAddress(name,address)<0 && twin_mode)
+                throw runtime_error(string("Missing or incompatible MC branch: ")+name);
+        };
+        bind("eventnumber", &eventnumber);
+        bind("numhits", &numhits);
         
-        inputtree->SetBranchAddress("energyDep",    &energyDep);
-        inputtree->SetBranchAddress("energyDep_NR", &energyDep_NR);
-        inputtree->SetBranchAddress("pdgID_hits",    &pdgID_hits);
-        inputtree->SetBranchAddress("tracklen_hits", &tracklen_hits);
-        inputtree->SetBranchAddress("px_particle", &px_particle);
-        inputtree->SetBranchAddress("py_particle", &py_particle);
-        inputtree->SetBranchAddress("pz_particle", &pz_particle);
+        bind("energyDep",    &energyDep);
+        bind("energyDep_NR", &energyDep_NR);
+        bind("pdgID_hits",    &pdgID_hits);
+        bind("tracklen_hits", &tracklen_hits);
+        bind("px_particle", &px_particle);
+        bind("py_particle", &py_particle);
+        bind("pz_particle", &pz_particle);
             
-        inputtree->SetBranchAddress("energyDep_hits", &energyDep_hits);
-        inputtree->SetBranchAddress("energyDep_hits_NRQF", &energyDep_hits_NRQF);
-        inputtree->SetBranchAddress("x_hits", &x_hits);
-        inputtree->SetBranchAddress("y_hits", &y_hits);
-        inputtree->SetBranchAddress("z_hits", &z_hits);
+        bind("energyDep_hits", &energyDep_hits);
+        bind("energyDep_hits_NRQF", &energyDep_hits_NRQF);
+        bind("x_hits", &x_hits);
+        bind("y_hits", &y_hits);
+        bind("z_hits", &z_hits);
+
+        if(twin_mode) {
+            bind("energyDep_QF",&energyDep_QF);
+            bind("energyDep_hits_QF",&energyDep_hits_QF);
+            bind("energyDep_hits_QF_geant",&energyDep_hits_QF_geant);
+            bind("parentID_hits",&parentID_hits);
+            bind("trackID_hits",&trackID_hits);
+        }
 
         // Fill Vignetting map if needed
         TH2F VignMap;
@@ -604,6 +633,7 @@ void DigitizationRunner::processRootFiles() {
     
             // Saving the parameters of digitization in output file
             SaveValues(outfile);
+            if(twin_mode) {outfile->cd();TwinML::metadata(config.getOptions());}
             //Output file branches
             Int_t eventnumber_out   = -999;
             Int_t particle_type_out = -999;
@@ -659,6 +689,7 @@ void DigitizationRunner::processRootFiles() {
             std::unique_ptr<std::vector<uint16_t>> redpix_iy = std::make_unique<std::vector<uint16_t>>();
             std::unique_ptr<std::vector<uint16_t>> redpix_iz = std::make_unique<std::vector<uint16_t>>();
             
+            TwinML::Record ml; // Storage precedes the TTree and survives every Fill.
             int camera_id=-1, variant_id=twin_mode ? twin->variant : -1;
             string selected_side=twin_mode ? twin->side : "", parent_id;
             double target_depth=-1, actual_depth=-1;
@@ -674,6 +705,9 @@ void DigitizationRunner::processRootFiles() {
             auto outtree = std::make_unique<TTree>("event_info", "event_info");
                 
             if (twin_mode) {
+                ml.branches(*outtree);
+                outtree->Branch("obs_camera_width",&x_pix);
+                outtree->Branch("obs_camera_height",&y_pix);
                 outtree->Branch("camera_id", &camera_id);
                 outtree->Branch("selected_side", &selected_side);
                 outtree->Branch("parent_id", &parent_id);
@@ -767,9 +801,16 @@ void DigitizationRunner::processRootFiles() {
                     }
                 }
 
-                inputtree->GetEntry(entry);
+                if(inputtree->GetEntry(entry)<=0 && twin_mode) throw runtime_error("Cannot read MC entry: "+filename);
                 if (twin_mode) {
-                    parent_id=twin->source+"/"+basefilename+":"+to_string(entry);
+                    parent_id=source_file_id+":"+to_string(eventnumber);
+                    ml=TwinML::Record{};
+                    ml.parent_id=parent_id;ml.source_file_id=source_file_id;
+                    ml.variant_id=twin->variant;ml.side_id=twin->side=="L" ? 0 : 1;
+                    ml.response_id=config.getInt("twin_response_id");
+                    ml.seed=TwinPlacement::hash(parent_id+"|"+config.get("twin_detector_seed")+"|"+
+                        to_string(ml.variant_id)+"|"+to_string(ml.response_id));
+                    gRandom->SetSeed(TwinML::stream(ml.seed,"charge-camera"));
                     camera_id=-1; target_depth=actual_depth=-1; twin_weights.clear();
                 }
 
@@ -814,10 +855,10 @@ void DigitizationRunner::processRootFiles() {
                     particle_type_out = is_NR(*pdgID_hits, int(1.e9));
                     NR_flag = true;
                 } 
-                else particle_type_out = (*pdgID_hits)[0];  // this will tell us if the deposit was
+                else particle_type_out = pdgID_hits->empty() ? 0 : (*pdgID_hits)[0];  // this will tell us if the deposit was
                 // started by a photon or an electron
     
-                if(!config.getBool("NR")   && NR_flag==true ) continue;
+                if(!twin_mode && !config.getBool("NR") && NR_flag) continue;
                     
                 //initialize array values - to save info also if the track is skipped (background only)
                 row_cut         = -1;
@@ -871,8 +912,7 @@ void DigitizationRunner::processRootFiles() {
                     AddBckg(background);
                 }
       
-                if (energy < config.getDouble("ion_pot")){
-                    if (twin_mode) throw runtime_error("TWIN parent below ionization threshold: "+parent_id);
+                if (!twin_mode && energy < config.getDouble("ion_pot")){
                     energy = 0;
                     TH2I final_image(Form("pic_run%d_ev%d", runCount, entry-start), "",
                                         x_pix, -0.5, x_pix -0.5,
@@ -974,17 +1014,48 @@ void DigitizationRunner::processRootFiles() {
                 // Definition of energy hits
                 vector<double> energy_hits;
                 
-                if (NR_flag) {
+                if(twin_mode) energy_hits=*energyDep_hits_QF;
+                else if (NR_flag) {
                     energy_hits = (*energyDep_hits_NRQF);
                 } else {
                     energy_hits = (*energyDep_hits);
                 }
                     
                 if (twin_mode) {
-                    twin_weights=energy_hits; // NR uses the same quenched visible energy as the response.
-                    const auto placed=twin->place(parent_id,x_hits_tr,y_hits_tr,z_hits_tr,energy_hits);
-                    camera_id=placed.camera; placement_dx_mm=placed.dx; placement_dy_mm=placed.dy;
-                    placement_dz_mm=placed.dz; target_depth=placed.target; actual_depth=placed.actual;
+                    ml.hit_x_mm=x_hits_tr;ml.hit_y_mm=y_hits_tr;ml.hit_z_mm=z_hits_tr;
+                    ml.hit_evis_keV=energy_hits;ml.hit_edep_keV=*energyDep_hits;
+                    try {
+                        if(numhits<0 || x_hits_tr.size()!=static_cast<size_t>(numhits) || y_hits_tr.size()!=x_hits_tr.size() ||
+                           z_hits_tr.size()!=x_hits_tr.size() || parentID_hits->size()!=x_hits_tr.size() || trackID_hits->size()!=x_hits_tr.size())
+                            throw invalid_argument("MC coordinate/identity array size mismatch");
+                        ml.evis_total_keV=TwinML::energies(*energyDep_hits,energy_hits,*pdgID_hits,*energyDep_hits_NRQF,
+                            *energyDep_hits_QF_geant,energyDep,energyDep_QF);
+                        const auto found=generated.find(eventnumber);
+                        if(found==generated.end()) throw invalid_argument("Missing tree1 event match: "+parent_id);
+                        const auto& primary=found->second;
+                        const auto direction=TwinML::direction(primary,config.getOptions());
+                        ml.initial_ux=direction[0];ml.initial_uy=direction[1];ml.initial_uz=direction[2];ml.direction_valid=true;
+                        ml.primary_energy_MeV=primary.energy;
+                        ml.primary_vertex_mm=TwinML::vertex(primary,config.getOptions(),ml.placement_xyz_mm);
+                        ml.primary_pdg=config.getInt("twin_primary_pdg");
+                        ml.class_nr=ml.primary_pdg==2212 || ml.primary_pdg>1000000000;
+                        for(size_t i=0;i<trackID_hits->size();++i)
+                            if((*trackID_hits)[i]==1 && (*parentID_hits)[i]==0 && (*pdgID_hits)[i]!=ml.primary_pdg)
+                                throw invalid_argument("Declared primary PDG disagrees with primary-track hits");
+                        twin_weights=energy_hits;
+                        const auto placed=twin->place(parent_id,x_hits_tr,y_hits_tr,z_hits_tr,energy_hits,false);
+                        camera_id=placed.camera;placement_dx_mm=placed.dx;placement_dy_mm=placed.dy;placement_dz_mm=placed.dz;
+                        target_depth=placed.target;actual_depth=placed.actual;
+                        ml.camera_id=camera_id;ml.placement_xyz_mm={placed.dx,placed.dy,placed.dz};ml.z_centroid_mm=placed.actual;
+                        ml.hit_x_mm=x_hits_tr;ml.hit_y_mm=y_hits_tr;ml.hit_z_mm=z_hits_tr;
+                        ml.primary_vertex_mm=TwinML::vertex(primary,config.getOptions(),ml.placement_xyz_mm);
+                        if(!placed.drift_contained) throw runtime_error("Full-track drift containment failed: "+parent_id);
+                    } catch(const std::exception& error) {
+                        ml.reject_reason=error.what();
+                        eventnumber_out=eventnumber;nRedpix=0;
+                        ml.camera_counts.assign(static_cast<size_t>(x_pix)*y_pix,0.);
+                        outtree->Fill();continue;
+                    }
                     // Render one camera in its local frame; PMT voxels are transformed back below.
                     for (size_t i=0;i<x_hits_tr.size();++i) {
                         auto p=twin->local(camera_id,x_hits_tr[i],y_hits_tr[i]);
@@ -1056,10 +1127,12 @@ void DigitizationRunner::processRootFiles() {
                         y_active.push_back(y_hits_tr[i]);
                         z_active.push_back(z_hits_tr[i]);
                         energy_active.push_back(energy_hits[i]);
+                        if(twin_mode) ml.response_hit_index.push_back(i);
                     }
                 }
 
                 cout<<"Starting compute_cmos_with_saturation with size = "<<x_hits_tr.size()<<"..."<<endl;
+                try {
                 if(!processTrack.computeWithSaturation(x_active,
                                                         y_active,
                                                         z_active,
@@ -1073,6 +1146,7 @@ void DigitizationRunner::processRootFiles() {
                     std::cerr<<"Warning: DigitizationRunner::processRootFiles: skipping this track because of error from TrackProcessor::computeWithSaturation."<<std::endl;
 
                     // The reported energy is -1 for those tracks to be recognizable
+                    if(twin_mode) {ml.reject_reason="detector response failed";ml.camera_counts.assign(static_cast<size_t>(x_pix)*y_pix,0.);}
                     energy = -1;
                     TH2I final_image(Form("pic_run%d_ev%d", runCount, entry-start), "",
                                         x_pix, -0.5, x_pix -0.5,
@@ -1097,7 +1171,6 @@ void DigitizationRunner::processRootFiles() {
                     
                 }
 
-                cout<<"DEBUG: after compute"<<endl<<flush;
                 auto tb = std::chrono::steady_clock::now();
                 std::chrono::duration<double> durtmp=tb-ta;
                 cout << "Time taken in seconds to compute_cmos_with_saturation is: " << durtmp.count() << endl;
@@ -1106,13 +1179,15 @@ void DigitizationRunner::processRootFiles() {
                 //                               PMT SIMULATION                               //
                 // ========================================================================== //
                 
-                if (config.getBool("pmt_mode") && !pmt_voxels.empty()) {
-                    const std::map<std::string, std::string> pmt_options = config.getOptions();
+                if (config.getBool("pmt_mode") && (twin_mode || !pmt_voxels.empty())) {
+                    const auto pmt_options=twin_mode ? TwinML::responseOptions(config.getOptions(),ml.seed) : config.getOptions();
                     
                     // 1. Properties Setup
                     const double drift_field = config.getDouble("drift_field"); 
                     const double v_drift_mm_ns = Utils::compute_drift_velocity(drift_field) / 100.0;
-                    const double qe_factor = 0.0136;        //average QE of PMT 
+                    // Voxel amplitudes are saturated GEM charge; camera and PMTs share its photon yield.
+                    const double qe_factor = twin_mode ? config.getDouble("photons_per_el") *
+                        config.getDouble("twin_pmt_quantum_efficiency") : 0.0136;
                 
                     // 2. Data Preparation                
                     double min_z = 1.0e9;
@@ -1122,13 +1197,16 @@ void DigitizationRunner::processRootFiles() {
                             if (voxel.z < min_z) { min_z = voxel.z; event_detected = true; }
                          }
                     }
-                    const double time_shift_reference = event_detected ? min_z : 0.0;
+                    const double time_shift_reference = !twin_mode && event_detected ? min_z : 0.0;
                 
                     std::vector<double> x_coords, y_coords, arrival_times;
                     std::vector<int> effective_photons;
                     
                     for (const auto& voxel : pmt_voxels) {
-                        const int n_photons_eff = std::round(voxel.n_photons * qe_factor);
+                        const double effective=std::round(voxel.n_photons * qe_factor);
+                        if(twin_mode && (!std::isfinite(effective) || effective>std::numeric_limits<int>::max()))
+                            throw runtime_error("PMT voxel photon count exceeds supported integer range");
+                        const int n_photons_eff = effective;
                         if (n_photons_eff > 0) {
                             const auto global_xy = twin_mode ? twin->global(camera_id,voxel.x,voxel.y)
                                 : std::array<double,2>{voxel.x,voxel.y};
@@ -1137,16 +1215,17 @@ void DigitizationRunner::processRootFiles() {
                             effective_photons.push_back(n_photons_eff);
                             
                             const double z_corrected = voxel.z - time_shift_reference;
-                            arrival_times.push_back(std::abs(z_corrected) / v_drift_mm_ns);
+                            arrival_times.push_back((twin_mode ? z_corrected : std::abs(z_corrected)) / v_drift_mm_ns);
                         }
                     }
                 
                     // 3. Light Propagation and Signal Digitization
-                    if (!x_coords.empty()) {
+                    if (twin_mode || !x_coords.empty()) {
                         
                         // Photon Propagation Step
                         PhotonPropagation propagation(x_coords, y_coords, effective_photons, arrival_times, pmt_options);
                         auto pmt_hits_map = propagation.pmt_hits();
+                        if(twin_mode) TwinML::trigger(pmt_hits_map);
                 
                         // Signal Simulation Step
                         SignalSimulation simulator(pmt_hits_map, pmt_options, SOURCE_DIR);
@@ -1166,8 +1245,21 @@ void DigitizationRunner::processRootFiles() {
                 // ========================================================================== //
 
 
+                if(twin_mode) { ml.image(array2d_Nph,config.getDouble("twin_camera_noise_rms_counts")); ml.valid=true; }
+                } catch(const std::exception& error) {
+                    if(!twin_mode) throw;
+                    ml.valid=false;ml.reject_reason=string("detector response: ")+error.what();
+                    ml.camera_counts.assign(static_cast<size_t>(x_pix)*y_pix,0.);
+                    ml.camera_ix.clear();ml.camera_iy.clear();ml.camera_signal.clear();
+                    for(int i=0;i<pmt_count;++i) {
+                        wav_fast[i].assign(config.getInt("fast_window_len"),0.);
+                        wav_slow[i].assign(config.getInt("slow_window_len"),0.);
+                        pmt_signal_valid[i]=0;
+                    }
+                    outtree->Fill();continue;
+                }
                 // Integral of the track - if opt.exposure_effect, it's computed anyway after the cut on the original hits
-                N_photons = accumulate(array2d_Nph.cbegin(), array2d_Nph.cend(), 0, [](auto sum, const auto& row) {
+                N_photons = twin_mode ? -1 : accumulate(array2d_Nph.cbegin(), array2d_Nph.cend(), 0, [](auto sum, const auto& row) {
                     return accumulate(row.cbegin(), row.cend(), sum);
                 });
                 // DEBUG
@@ -1203,7 +1295,7 @@ void DigitizationRunner::processRootFiles() {
                                     y_pix, -0.5, y_pix -0.5);
                 for(unsigned int xx =0; xx < array2d_Nph.size(); xx++) {
                     for(unsigned int yy =0; yy < array2d_Nph[0].size(); yy++) {
-                        int binc = background[xx][yy]+(int)array2d_Nph[xx][yy];
+                        int binc = background[xx][yy]+(twin_mode ? static_cast<int>(std::min(array2d_Nph[xx][yy],static_cast<double>(std::numeric_limits<int>::max()))) : static_cast<int>(array2d_Nph[xx][yy]));
                         final_image.SetBinContent(xx+1, yy+1, binc);
                     }
                 }
@@ -1267,6 +1359,12 @@ void DigitizationRunner::processRootFiles() {
             digipart ++;
             runCount ++;
             if(stop == lastentry) fileStillToDigitize = false;
+        }
+        if(twin_mode) {
+            // SetBranchAddress allocates these vector objects for null input pointers.
+            inputtree->ResetBranchAddresses();
+            delete energyDep_hits_QF;delete energyDep_hits_QF_geant;
+            delete parentID_hits;delete trackID_hits;
         }
         f->Close();
     }

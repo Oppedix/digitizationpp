@@ -51,32 +51,34 @@ directories. The four `twin_depth_i_min/max` ranges configure absolute weighted
 centroid strata in mm; equal endpoints select a fixed depth. Template ranges
 are design examples. Keep all other placement configuration identical.
 
-Parent identity is `twin_source_id/basename:input_tree_entry`. Choose a stable,
-unique dataset namespace and unique filenames within it. Identity does not
+Parent identity is `twin_source_id/ROOT-file-UUID:eventnumber`. Choose a stable,
+unique dataset namespace; generated truth is joined inside each source file. Identity does not
 include output run number, file traversal order, event chunks or variant ID.
 FNV-1a and mt19937_64 with explicit 53-bit uniform conversion make selection
 repeatable without std::hash or thread-local randomness. Camera/XY draws use
 parent, selected side and master seed only; depth draws add variant ID.
-Physics/noise random draws retain the existing behavior and are not coupled
-between separate detector simulations. Do not change geometry, seed or namespace
+Detector stochasticity uses the independent named seeds described in TWIN_SCHEMA.md.
+Do not change geometry, placement master seed or namespace
 between paired runs.
 
 A camera is chosen once. Rigid XY shifts must contain *all* original hits in
 both its FOV and the GEM. Up to 10000 shifts are tried for rotated footprint/GEM
-intersection; failure aborts explicitly with parent ID. There is no camera
+intersection; failure creates an explicitly rejected ML record. There is no camera
 resampling, hit removal or truth truncation. Z translation is target minus
 ionization-weighted centroid: weights are the exact energy deposits passed to
-the response (quenched NR deposits for nuclear recoils). Negative/nonfinite
-weights, zero total weight, and any translated hit outside 0..500 abort before
-mutating the source vectors. A parent failing one variant is not a usable
-four-depth pair; the error identifies that variant. Exposure cuts must be off.
-Tracks below the existing ionization threshold abort explicitly in TWIN mode.
+the response (complete upstream energyDep_hits_QF, including electronic secondaries).
+Negative/nonfinite weights, zero total weight, or any hit outside 0..500 reject
+the ML record. A parent failing one variant is not a usable four-depth pair;
+the record identifies that variant. Failed drift containment retains full placed
+truth for audit and produces no partial training response. Exposure cuts must be
+off. Small positive energy deposits can produce valid noise-only observations.
 
 One camera response is synthesized in camera-local XY. Light voxels from that
 same realization are transformed back to common GEM XY for the eight fixed
 PMTs. Existing diffusion can extend beyond nominal truth bounds; containment
 applies to ionization hits, not a post-diffusion clipping of the physical cloud.
-PMT time reference, gains, QE, pulse model and noise mechanism are unchanged.
+The ML timing trigger, explicit photon yield/QE and provisional offline noise
+are documented in TWIN_SCHEMA.md; no additional detector renderer is introduced.
 
 TWIN-only ROOT fields: `camera_id`, `selected_side`, `parent_id`, `variant_id`,
 `target_depth_mm`, `actual_depth_mm`, `visible_ionization_weights`, `source_x/y/z`,
@@ -100,3 +102,9 @@ rigid separations and geometric PMT collection under source displacement.
 The second suite uses ROOT and explicitly stubs only the unavailable OpenCV
 noise IFFT. Full Geant4/ROOT/OpenCV detector integration still requires the
 production dependencies, verified geometry and input MC files.
+
+
+Stage 3 dataset contract: see [TWIN_SCHEMA.md](TWIN_SCHEMA.md). For ML runs,
+complete QF weights replace the earlier NR-only event weights; identity now uses
+source file UUID plus event number, and failed placement is saved as an invalid
+record instead of aborting the run. Regenerate paired datasets consistently.

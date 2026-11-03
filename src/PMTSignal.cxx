@@ -54,7 +54,9 @@ SignalSimulation::SignalSimulation(const map<string, vector<PMTData>>& hits_dict
         throw invalid_argument("PMT waveform lengths and sampling frequencies must be positive and finite");
 
     random_device rd;
-    gen.seed(rd());
+    auto seed=options_.find("twin_spe_seed");
+    gen.seed(seed==options_.end() ? rd() : std::stoul(seed->second));
+    if(seed!=options_.end()) noise_gen.seed(std::stoul(options_.at("twin_noise_seed")));
     exp_dist_ = std::exponential_distribution<double>(exp_scale_);
     transit_dist_ = std::normal_distribution<double>(transit_time_mu_, transit_time_sigma_);
 
@@ -177,6 +179,19 @@ vector<double> SignalSimulation::load_txt_array(const string& filename) {
 }
 
 void SignalSimulation::gen_noise() {
+    if (options_.count("twin_spe_seed") && options_.at("twin_noise_mode")=="synthetic") {
+        const double rms=std::stod(options_.at("twin_pmt_noise_rms_v"));
+        if(!std::isfinite(rms) || rms<0) throw std::invalid_argument("Invalid TWIN PMT noise RMS");
+        std::normal_distribution<double> gaussian(0,1);
+        for(int i=1;i<=num_pmts_;++i) {
+            auto& fast=fast_noise_["pmt_"+to_string(i)];
+            auto& slow=slow_noise_["pmt_"+to_string(i)];
+            fast.resize(fast_window_len_);slow.resize(slow_window_len_);
+            for(auto& value:fast) value=rms*gaussian(noise_gen);
+            for(auto& value:slow) value=rms*gaussian(noise_gen);
+        }
+        return; // Offline provisional white voltage noise, no PSD download.
+    }
     vector<string> pmts;
     for(int i=1;i<=num_pmts_;i++)
             pmts.push_back("pmt_"+to_string(i));
