@@ -40,6 +40,9 @@ struct PMTData {
  */
 class PhotonPropagation {
 public:
+    // Validate production geometry before opening output files or loading noise.
+    static int validateGeometry(const map<string, string>& options);
+
     /**
      * @brief Constructor for PhotonPropagation.
      * * Initializes the propagation module and pre-calculates geometric constants

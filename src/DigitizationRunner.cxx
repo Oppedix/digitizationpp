@@ -48,6 +48,11 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
     
 
     config.validateAxisMappings();
+    if (config.getBool("pmt_mode")) {
+        PhotonPropagation::validateGeometry(config.getOptions());
+        if (config.getInt("fast_window_len") <= 0 || config.getInt("slow_window_len") <= 0)
+            throw invalid_argument("PMT waveform lengths must be positive");
+    }
 
     
 
@@ -649,18 +654,11 @@ void DigitizationRunner::processRootFiles() {
             std::unique_ptr<std::vector<uint16_t>> redpix_iy = std::make_unique<std::vector<uint16_t>>();
             std::unique_ptr<std::vector<uint16_t>> redpix_iz = std::make_unique<std::vector<uint16_t>>();
             
-             // PMT Waveforms (Fast and Slow) ---
-            //std::unique_ptr<std::vector<double>> wav_fast_pmt1 = std::make_unique<std::vector<double>>();
-            std::vector<double> wav_fast_pmt1;
-            std::vector<double> wav_fast_pmt2;
-            std::vector<double> wav_fast_pmt3;
-            std::vector<double> wav_fast_pmt4;
-
-            std::vector<double> wav_slow_pmt1;
-            std::vector<double> wav_slow_pmt2;
-            std::vector<double> wav_slow_pmt3;
-            std::vector<double> wav_slow_pmt4;
-            
+            // Never resize these outer containers: ROOT stores addresses of their elements.
+            const int pmt_count = config.getBool("pmt_mode")
+                ? PhotonPropagation::validateGeometry(config.getOptions()) : 0;
+            vector<vector<double>> wav_fast(pmt_count), wav_slow(pmt_count);
+            vector<int> pmt_signal_valid(pmt_count, 0);
 
             // ROOT TTree
             auto outtree = std::make_unique<TTree>("event_info", "event_info");
@@ -711,17 +709,11 @@ void DigitizationRunner::processRootFiles() {
             outtree->Branch("redpix_iy", redpix_iy.get());
             outtree->Branch("redpix_iz", redpix_iz.get());
             if (config.getBool("pmt_mode")) {
-                // Create branches for PMT waveforms
-                //outtree->Branch("wav_fast_pmt1", wav_fast_pmt1.get());
-                outtree->Branch("wav_fast_pmt1", &wav_fast_pmt1);
-                outtree->Branch("wav_fast_pmt2", &wav_fast_pmt2);
-                outtree->Branch("wav_fast_pmt3", &wav_fast_pmt3);
-                outtree->Branch("wav_fast_pmt4", &wav_fast_pmt4);
-
-                outtree->Branch("wav_slow_pmt1", &wav_slow_pmt1);
-                outtree->Branch("wav_slow_pmt2", &wav_slow_pmt2);
-                outtree->Branch("wav_slow_pmt3", &wav_slow_pmt3);
-                outtree->Branch("wav_slow_pmt4", &wav_slow_pmt4);
+                for (int i = 0; i < pmt_count; ++i) {
+                    outtree->Branch(("wav_fast_pmt" + to_string(i + 1)).c_str(), &wav_fast[i]);
+                    outtree->Branch(("wav_slow_pmt" + to_string(i + 1)).c_str(), &wav_slow[i]);
+                }
+                outtree->Branch("pmt_signal_valid", &pmt_signal_valid);
             }
 
             if (save_mc_first3_hits) {
@@ -741,8 +733,12 @@ void DigitizationRunner::processRootFiles() {
                 redpix_iz->clear();
                 
                 if (config.getBool("pmt_mode")) {
-                    wav_fast_pmt1.clear(); wav_fast_pmt2.clear(); wav_fast_pmt3.clear(); wav_fast_pmt4.clear();
-                    wav_slow_pmt1.clear(); wav_slow_pmt2.clear(); wav_slow_pmt3.clear(); wav_slow_pmt4.clear();
+                    // Skipped/no-light events retain declared lengths, with validity zero.
+                    for (int i = 0; i < pmt_count; ++i) {
+                        wav_fast[i].assign(config.getInt("fast_window_len"), 0.);
+                        wav_slow[i].assign(config.getInt("slow_window_len"), 0.);
+                        pmt_signal_valid[i] = 0;
+                    }
                 }
 
                 inputtree->GetEntry(entry);
@@ -1067,10 +1063,6 @@ void DigitizationRunner::processRootFiles() {
                 // ========================================================================== //
                 
                 if (config.getBool("pmt_mode") && !pmt_voxels.empty()) {
-                    
-                    auto pmt_start = std::chrono::steady_clock::now();
-                    std::cout << "[DEBUG] Starting PMT simulation ..." << std::endl;
-                    
                     const std::map<std::string, std::string> pmt_options = config.getOptions();
                     
                     // 1. Properties Setup
@@ -1107,37 +1099,22 @@ void DigitizationRunner::processRootFiles() {
                     if (!x_coords.empty()) {
                         
                         // Photon Propagation Step
-                        auto prop_start = std::chrono::steady_clock::now();
                         PhotonPropagation propagation(x_coords, y_coords, effective_photons, arrival_times, pmt_options);
                         auto pmt_hits_map = propagation.pmt_hits();
-                        auto prop_end = std::chrono::steady_clock::now();
-                        std::chrono::duration<double> prop_time = prop_end - prop_start;
-                        std::cout << "[DEBUG] Photon propagation (pmt_hits) took: " << prop_time.count() << " s" << std::endl;
                 
                         // Signal Simulation Step
-                        auto sig_start = std::chrono::steady_clock::now();
                         SignalSimulation simulator(pmt_hits_map, pmt_options, SOURCE_DIR);
                         std::map<std::string, std::vector<double>> fast_signals, slow_signals;
                         simulator.simulated_signals(fast_signals, slow_signals);
-                        auto sig_end = std::chrono::steady_clock::now();
-                        std::chrono::duration<double> sig_time = sig_end - sig_start;
-                        std::cout << "[DEBUG] Signal simulation (pmt_sim) took: " << sig_time.count() << " s" << std::endl;
                 
                         // 4. Output Assignment
-                        //*wav_fast_pmt1 = fast_signals["pmt_1"];
-                        wav_fast_pmt1 = fast_signals["pmt_1"];
-                        wav_fast_pmt2 = fast_signals["pmt_2"];
-                        wav_fast_pmt3 = fast_signals["pmt_3"];
-                        wav_fast_pmt4 = fast_signals["pmt_4"];
-                        wav_slow_pmt1 = slow_signals["pmt_1"];
-                        wav_slow_pmt2 = slow_signals["pmt_2"];
-                        wav_slow_pmt3 = slow_signals["pmt_3"];
-                        wav_slow_pmt4 = slow_signals["pmt_4"];
+                        for (int i = 0; i < pmt_count; ++i) {
+                            const string channel = "pmt_" + to_string(i + 1);
+                            wav_fast[i] = std::move(fast_signals.at(channel));
+                            wav_slow[i] = std::move(slow_signals.at(channel));
+                            pmt_signal_valid[i] = !pmt_hits_map[channel].empty();
+                        }
                     }
-                
-                    auto pmt_end = std::chrono::steady_clock::now();
-                    std::chrono::duration<double> total_pmt_time = pmt_end - pmt_start;
-                    std::cout << "[DEBUG] TOTAL PMT Simulation execution time: " << total_pmt_time.count() << " s" << std::endl;
                 }
                 
                 // ========================================================================== //
