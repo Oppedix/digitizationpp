@@ -29,6 +29,7 @@
 #include "TH2.h"
 #include "PMTHits.h"
 #include "PMTSignal.h"
+#include "TwinPlacement.h"
 
 using namespace std;
 
@@ -48,6 +49,7 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
     
 
     config.validateAxisMappings();
+    if (config.getBool("twin_cygno04_mode")) TwinPlacement{config.getOptions()};
     if (config.getBool("pmt_mode")) {
         PhotonPropagation::validateGeometry(config.getOptions());
         if (config.getInt("fast_window_len") <= 0 || config.getInt("slow_window_len") <= 0)
@@ -223,7 +225,7 @@ void DigitizationRunner::SaveValues(shared_ptr<TFile>& outfile) {
         // DEBUG
         // cout<<key<<": "<<val<<endl;
         
-        if(key!="tag"       && key !="Vig_Map" &&
+        if(key!="twin_side" && key!="twin_source_id" && key!="tag"       && key !="Vig_Map" &&
            key!="bckg_path" && key !="ped_cloud_dir" &&
            key!="noiserun"  && key !="bckg_name" &&
            key !="Camera_type" && key!="detector" &&
@@ -465,6 +467,9 @@ void DigitizationRunner::FillRedpix(const std::vector<std::vector<double>>& imag
 
 void DigitizationRunner::processRootFiles() {
     
+    const bool twin_mode = config.getBool("twin_cygno04_mode");
+    std::unique_ptr<TwinPlacement> twin;
+    if (twin_mode) twin = std::make_unique<TwinPlacement>(config.getOptions());
     const string infolder  = Utils::resolvePath(inputDir);
     const string outfolder = Utils::resolvePath(outputDir);
 
@@ -654,6 +659,11 @@ void DigitizationRunner::processRootFiles() {
             std::unique_ptr<std::vector<uint16_t>> redpix_iy = std::make_unique<std::vector<uint16_t>>();
             std::unique_ptr<std::vector<uint16_t>> redpix_iz = std::make_unique<std::vector<uint16_t>>();
             
+            int camera_id=-1, variant_id=twin_mode ? twin->variant : -1;
+            string selected_side=twin_mode ? twin->side : "", parent_id;
+            double target_depth=-1, actual_depth=-1;
+            vector<double> twin_weights;
+
             // Never resize these outer containers: ROOT stores addresses of their elements.
             const int pmt_count = config.getBool("pmt_mode")
                 ? PhotonPropagation::validateGeometry(config.getOptions()) : 0;
@@ -663,6 +673,22 @@ void DigitizationRunner::processRootFiles() {
             // ROOT TTree
             auto outtree = std::make_unique<TTree>("event_info", "event_info");
                 
+            if (twin_mode) {
+                outtree->Branch("camera_id", &camera_id);
+                outtree->Branch("selected_side", &selected_side);
+                outtree->Branch("parent_id", &parent_id);
+                outtree->Branch("variant_id", &variant_id);
+                outtree->Branch("target_depth_mm", &target_depth);
+                outtree->Branch("actual_depth_mm", &actual_depth);
+                outtree->Branch("visible_ionization_weights", &twin_weights);
+                // Input pointers persist through the event loop; ROOT addresses reset below.
+                outtree->Branch("source_x", &x_hits);
+                outtree->Branch("source_y", &y_hits);
+                outtree->Branch("source_z", &z_hits);
+                outtree->Branch("source_px", &px_particle);
+                outtree->Branch("source_py", &py_particle);
+                outtree->Branch("source_pz", &pz_particle);
+            }
             outtree->Branch("eventnumber", &eventnumber_out, "eventnumber/I");
             outtree->Branch("particle_type", &particle_type_out, "particle_type/I");
             outtree->Branch("energy", &energy, "energy/F");
@@ -742,6 +768,10 @@ void DigitizationRunner::processRootFiles() {
                 }
 
                 inputtree->GetEntry(entry);
+                if (twin_mode) {
+                    parent_id=twin->source+"/"+basefilename+":"+to_string(entry);
+                    camera_id=-1; target_depth=actual_depth=-1; twin_weights.clear();
+                }
 
                 if (save_mc_first3_hits) {
                     //we record the MC truth for the first 3 hits
@@ -842,6 +872,7 @@ void DigitizationRunner::processRootFiles() {
                 }
       
                 if (energy < config.getDouble("ion_pot")){
+                    if (twin_mode) throw runtime_error("TWIN parent below ionization threshold: "+parent_id);
                     energy = 0;
                     TH2I final_image(Form("pic_run%d_ev%d", runCount, entry-start), "",
                                         x_pix, -0.5, x_pix -0.5,
@@ -949,31 +980,44 @@ void DigitizationRunner::processRootFiles() {
                     energy_hits = (*energyDep_hits);
                 }
                     
-                // Random placement: one rigid translation per event, in digitization mm.
-                // Keep Z first to preserve the random sequence of existing Z-only configs.
-                map<char, double*> placement_shifts = {
-                    {'x', &placement_dx_mm}, {'y', &placement_dy_mm}, {'z', &placement_dz_mm}
-                };
-                for (char axis : {'z', 'x', 'y'}) {
-                    const string key = string("rand") + char(axis - 'a' + 'A');
-                    const bool has_min = !config.get(key + "_min").empty();
-                    const bool has_max = !config.get(key + "_max").empty();
-                    if (has_min != has_max)
-                        throw std::invalid_argument(key + " requires both _min and _max (mm)");
-                    const double range = has_min || config.get(key + "_range").empty() ? 0. : config.getDouble(key + "_range");
-                    const double low = has_min ? config.getDouble(key + "_min") : -range/2.;
-                    const double high = has_max ? config.getDouble(key + "_max") : range/2.;
-                    if (!std::isfinite(low) || !std::isfinite(high) || low > high)
-                        throw std::invalid_argument(key + " bounds must be finite with min <= max (mm)");
-                    const double shift = low == high ? low : has_min
-                        ? low + gRandom->Uniform() * (high - low)
-                        : (gRandom->Uniform() - 0.5) * range;
-                    *placement_shifts[axis] = shift;
-                    auto& hits = *output_axes[axis];
-                    transform(hits.begin(), hits.end(), hits.begin(),
-                              [shift](double a) { return a + shift; });
-                }
+                if (twin_mode) {
+                    twin_weights=energy_hits; // NR uses the same quenched visible energy as the response.
+                    const auto placed=twin->place(parent_id,x_hits_tr,y_hits_tr,z_hits_tr,energy_hits);
+                    camera_id=placed.camera; placement_dx_mm=placed.dx; placement_dy_mm=placed.dy;
+                    placement_dz_mm=placed.dz; target_depth=placed.target; actual_depth=placed.actual;
+                    // Render one camera in its local frame; PMT voxels are transformed back below.
+                    for (size_t i=0;i<x_hits_tr.size();++i) {
+                        auto p=twin->local(camera_id,x_hits_tr[i],y_hits_tr[i]);
+                        x_hits_tr[i]=p[0]; y_hits_tr[i]=p[1];
+                    }
+                } else {
+                    // Random placement: one rigid translation per event, in digitization mm.
+                    // Keep Z first to preserve the random sequence of existing Z-only configs.
+                    map<char, double*> placement_shifts = {
+                        {'x', &placement_dx_mm}, {'y', &placement_dy_mm}, {'z', &placement_dz_mm}
+                    };
+                    for (char axis : {'z', 'x', 'y'}) {
+                        const string key = string("rand") + char(axis - 'a' + 'A');
+                        const bool has_min = !config.get(key + "_min").empty();
+                        const bool has_max = !config.get(key + "_max").empty();
+                        if (has_min != has_max)
+                            throw std::invalid_argument(key + " requires both _min and _max (mm)");
+                        const double range = has_min || config.get(key + "_range").empty() ? 0. : config.getDouble(key + "_range");
+                        const double low = has_min ? config.getDouble(key + "_min") : -range/2.;
+                        const double high = has_max ? config.getDouble(key + "_max") : range/2.;
+                        if (!std::isfinite(low) || !std::isfinite(high) || low > high)
+                            throw std::invalid_argument(key + " bounds must be finite with min <= max (mm)");
+                        const double shift = low == high ? low : has_min
+                            ? low + gRandom->Uniform() * (high - low)
+                            : (gRandom->Uniform() - 0.5) * range;
+                        *placement_shifts[axis] = shift;
+                        auto& hits = *output_axes[axis];
+                        transform(hits.begin(), hits.end(), hits.begin(),
+                                  [shift](double a) { return a + shift; });
+                    }
                 
+                }
+
                 //Compute length and extremes of the complete track
                 proj_track_2D = processTrack.GetTrackVariable("proj_track_2D", x_hits_tr, y_hits_tr, z_hits_tr);
                 x_vertex      = processTrack.GetTrackVariable("x_vertex", x_hits_tr, y_hits_tr, z_hits_tr);
@@ -1086,8 +1130,10 @@ void DigitizationRunner::processRootFiles() {
                     for (const auto& voxel : pmt_voxels) {
                         const int n_photons_eff = std::round(voxel.n_photons * qe_factor);
                         if (n_photons_eff > 0) {
-                            x_coords.push_back(voxel.x);
-                            y_coords.push_back(voxel.y);
+                            const auto global_xy = twin_mode ? twin->global(camera_id,voxel.x,voxel.y)
+                                : std::array<double,2>{voxel.x,voxel.y};
+                            x_coords.push_back(global_xy[0]);
+                            y_coords.push_back(global_xy[1]);
                             effective_photons.push_back(n_photons_eff);
                             
                             const double z_corrected = voxel.z - time_shift_reference;
