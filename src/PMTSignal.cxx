@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <iostream>
 #include <chrono>
+#include <stdexcept>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core/utility.hpp>
@@ -32,6 +33,7 @@ SignalSimulation::SignalSimulation(const map<string, vector<PMTData>>& hits_dict
                                    const string& SOURCE_DIR)
     : ptc_hits_(hits_dict), options_(options) {
         
+    num_pmts_ = PhotonPropagation::validateGeometry(options_);
     digitizers_ = options_["digitizers"];
     fast_window_len_ = stoi(options_["fast_window_len"]);
     slow_window_len_ = stoi(options_["slow_window_len"]);
@@ -46,6 +48,10 @@ SignalSimulation::SignalSimulation(const map<string, vector<PMTData>>& hits_dict
     transit_time_mu_ = stod(options_["transit_time"]);
     double tt_fwhm = stod(options_["transit_time_spread"]);
     transit_time_sigma_ = fwhm2std(tt_fwhm);
+
+    if (fast_window_len_ <= 0 || slow_window_len_ <= 0 ||
+        !isfinite(Fs_fast_) || Fs_fast_ <= 0 || !isfinite(Fs_slow_) || Fs_slow_ <= 0)
+        throw invalid_argument("PMT waveform lengths and sampling frequencies must be positive and finite");
 
     random_device rd;
     gen.seed(rd());
@@ -100,6 +106,7 @@ void SignalSimulation::expgaussian(vector<double>& waveform, const vector<double
 
 void SignalSimulation::spe_signal(double arr_time, vector<double>& fast_wf_aux, vector<double>& slow_wf_aux) {
     double disp = exp_dist_(gen) * 1e9;
+    // One photoelectron realization is sampled by both digitizers.
     double mean = (transit_time() + arr_time + disp) * 1e-9;
     
     float shift_fast = 200.0 / Fs_fast_;
@@ -150,10 +157,10 @@ void SignalSimulation::pmt_signal(const string& pmt,
 
 void SignalSimulation::simulated_signals(map<string, vector<double>>& fast_signal,
                                          map<string, vector<double>>& slow_signal) {                                                      
-    vector<string> pmts = {"pmt_1", "pmt_2", "pmt_3", "pmt_4"};
-    
-    for (const auto& pmt : pmts)
-        pmt_signal(pmt, fast_signal, slow_signal);
+    fast_signal.clear();
+    slow_signal.clear();
+    for (int i = 1; i <= num_pmts_; ++i)
+        pmt_signal("pmt_" + to_string(i), fast_signal, slow_signal);
 
     fast_signal["time"] = t_fast_;
     slow_signal["time"] = t_slow_;
@@ -171,7 +178,7 @@ vector<double> SignalSimulation::load_txt_array(const string& filename) {
 
 void SignalSimulation::gen_noise() {
     vector<string> pmts;
-    for(int i=1;i<=stoi(options_["pmt_number"]);i++) 
+    for(int i=1;i<=num_pmts_;i++)
             pmts.push_back("pmt_"+to_string(i));
 
     for (const auto& pmt : pmts) {
@@ -208,6 +215,11 @@ void SignalSimulation::gen_noise() {
 vector<double> SignalSimulation::compute_noise(const vector<double>& psd, const string& digitizer) {
     int N = (digitizer == "Fast") ? fast_window_len_ : slow_window_len_;
     double fs = (digitizer == "Fast") ? Fs_fast_ : Fs_slow_;
+
+    if (psd.size() < 2 || 2 * (psd.size() - 1) < static_cast<size_t>(N))
+        throw runtime_error("Missing or too short PMT noise PSD for " + digitizer);
+    for (double value : psd)
+        if (!isfinite(value) || value < 0.) throw runtime_error("Invalid PMT noise PSD");
 
     vector<double> PSD = psd;
     for (int i = psd.size() - 2; i > 0; --i) {

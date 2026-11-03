@@ -142,6 +142,7 @@ private:
 
     map<string, vector<PMTData>> ptc_hits_;       /**< Input hit data from PhotonPropagation. */
     map<string, string> options_;                 /**< Simulation configuration options. */
+    int num_pmts_;
     string digitizers_;                           /**< Selection of active digitizers (Fast/Slow/Both). */
     int fast_window_len_;                         /**< Fast digitizer window size (samples). */
     int slow_window_len_;                         /**< Slow digitizer window size (samples). */
