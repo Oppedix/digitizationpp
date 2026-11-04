@@ -108,3 +108,10 @@ Stage 3 dataset contract: see [TWIN_SCHEMA.md](TWIN_SCHEMA.md). For ML runs,
 complete QF weights replace the earlier NR-only event weights; identity now uses
 source file UUID plus event number, and failed placement is saved as an invalid
 record instead of aborting the run. Regenerate paired datasets consistently.
+
+Geometry update (2026-11-04): the template now carries the nominal
+`CYGNO04_nominal_v1` geometry (CAD/literature-derived cameras, GEM, drift and
+side-L MC mapping; **inferred** PMT XY/height). Sources, derivations and drawings:
+[../docs/GEOMETRY_CYGNO04.md](../docs/GEOMETRY_CYGNO04.md). The production gate
+`twin_geometry_verified` remains False until the PMT layout is confirmed.
+Consistency test: `tests/test_cygno04_geometry.cxx`.

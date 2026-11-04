@@ -41,7 +41,7 @@ vector<double> SignalSimulation::compute_noise(const vector<double>&,const strin
     settings.update(twin_geometry_verified=True,twin_source_id='fixture',twin_side='L',
         twin_mc_commit='7464329b3ed8c99e5e4bdaa84762d7d1db57441a',twin_primary_pdg=11,
         twin_gas_pressure_mbar=900,twin_gas_temperature_k=293.15,twin_detector_seed=123,twin_response_id=0,twin_pmt_quantum_efficiency=.2,twin_pmt_noise_rms_v=.001,twin_camera_noise_rms_counts=1.,
-        x_dim=400,y_dim=400,MC_xaxis='x',MC_yaxis='-y',MC_zaxis='z',x_offset=0,y_offset=0,z_offset=0,
+        Camera_type='Fusion',x_dim=400,y_dim=400,MC_xaxis='x',MC_yaxis='-y',MC_zaxis='z',x_offset=0,y_offset=0,z_offset=0,
         twin_gem_xmin=-500,twin_gem_xmax=500,twin_gem_ymin=-500,twin_gem_ymax=500,
         pmt_radius=11,dist_gem_pmt=190,Vignetting=False,c_G=5,alpha_G=0,GEM1_HV=100,GEM2_HV=100,GEM3_HV=100,
         z_vox_dim=2.,Parallel_threads=1)

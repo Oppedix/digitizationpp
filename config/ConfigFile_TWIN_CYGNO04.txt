@@ -1,6 +1,9 @@
-# CYGNO04 ONE SIDE: REQUIRED geometry placeholders, NOT production-ready.
-# Replace every REQUIRED value with verified measurements in digitization mm.
-# Electronics/noise settings are inherited LIME examples and require calibration.
+# CYGNO04 ONE SIDE (L) - nominal geometry 'CYGNO04_nominal_v1'.
+# Values are taken from CAD (CYGNUS-RD/geometry cygno_04_v3 + cygno_04_v2), CYGNO-MC
+# g4v11.3_cygno04 and published CYGNO04 descriptions; PMT XY/height are INFERRED.
+# See docs/GEOMETRY_CYGNO04.md for every source and derivation. The production gate
+# twin_geometry_verified stays False until the CYGNO hardware group confirms them.
+# Electronics/SPE settings are inherited LIME examples and require calibration.
 {
 # Detector physics
 ## diffusion parameters from https://arxiv.org/pdf/2007.00608.pdf
@@ -21,18 +24,18 @@
 'GEM2_HV'               : 440.,      # HV of GEM2
 'GEM3_HV'               : 440.,      # HV of GEM3
 
-'x_dim' : 'REQUIRED',       # first dimension of the detector
-'y_dim' : 'REQUIRED',       # second dimension of the detector
+'x_dim' : 532.48, # Camera FOV along GEM X (50 cm side) [mm] = 4096 px x 0.130 mm (arXiv:2510.01646 p.70)
+'y_dim' : 299.52, # Camera FOV along GEM Y (80 cm side) [mm] = 2304 px x 0.130 mm; 16:9 Quest2
 
 # Geometry
 'drift_length'         : 500.,      # Active Z interval [0, drift_length] in mm; omit for no upper cut.
-'MC_xaxis'              : 'REQUIRED', # Verified MC-to-side GEM frame mapping required
-'MC_yaxis'              : 'REQUIRED', # Verified MC-to-side GEM frame mapping required
-'MC_zaxis'              : 'REQUIRED', # Verified MC-to-side GEM frame mapping required
+'MC_xaxis' : 'x', # Side L, CYGNO-MC world frame with /CYGNO/lab/select NoCave (TPC at origin)
+'MC_yaxis' : 'y', # MC y = 80 cm GEM side (CAD z after rotX(-90deg))
+'MC_zaxis' : 'z', # Side L: drift from GEM (MC z=-502.2) toward cathode (z=0). Side R: x->'-x', z->'-z'
 
-'x_offset'              : 'REQUIRED', # Verified MC-to-side GEM frame mapping required
-'y_offset'              : 'REQUIRED', # Verified MC-to-side GEM frame mapping required
-'z_offset'              : 'REQUIRED', # Verified MC-to-side GEM frame mapping required
+'x_offset' : 0., # MC x centred on GEM (CAD x + 470 mm)
+'y_offset' : 0., # MC y centred on GEM
+'z_offset' : 502.2, # Side L innermost GEM foil at MC z=-502.2 mm (cygno_04_v3/GEM.stl); side R: 501.2
 
 'x_extra'               : 0.,        # Extra distance in x (of digitization ref. frame) from center of the image [mm]
 'y_extra'               : 0.,        # Extra distance in y (of digitization ref. frame) from center of the image [mm]
@@ -53,7 +56,7 @@
 # at camera edges. Sampled shifts are saved as placement_dx_mm/dy_mm/dz_mm.
 
 # Camera parameters
-'Camera_type'		: 'Fusion',   # Possibilities: Fusion, Quest1, Quest2
+'Camera_type' : 'Quest2', # CYGNO04: Hamamatsu ORCA-Quest2 qCMOS, 4096x2304
 'camera_aperture'       : 0.95,
 'exposure_time_effect'  : False,      # if True simulates the effect of tracks cut by the sensor being not fully exposed
 'exposure_time'         : 300,       # exposure time in milliseconds
@@ -78,7 +81,7 @@
 'start_event'		: 0,         # index of the first event to digitize
 
 # Vignetting
-'Vignetting'		: True,      #Add vignetting effect according to the MAP
+'Vignetting' : False, # No Quest2/CYGNO04 vignetting map in this repo (deferred response uncertainty)
 'Vig_Map'		: 'vignette_runs03930to03932.root',
 
 # Operative parameters
@@ -102,27 +105,27 @@
 'pmt_noise_cloud_dir'       : 'cygno-sim/Useful_for_digi/PMTnoise_template',    # directory inside the cloud bucket where the noise files are located
 'detector'              : 'CYGNO04',      # This will allow to select the noise files (LIME, GIN, MAN, CYGNO04, CUSTOM)
 'pmt_number'            : 8,          # Number of PMTs
-'dist_gem_pmt'          : 'REQUIRED', # Verified geometry required (mm)
-'pmt_radius'            : 'REQUIRED', # Verified geometry required (mm)
+'dist_gem_pmt' : 402., # INFERRED: PMT window-GEM distance from cygno_04_v2/pmts.stl (only CAD with PMTs)
+'pmt_radius' : 11., # R7378A effective photocathode radius, as LIME
 
 ## PMT positions
-'pmt_1_x'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_1_y'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_2_x'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_2_y'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_3_x'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_3_y'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_4_x'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_4_y'               : 'REQUIRED', # Verified geometry required (mm)
+'pmt_1_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/GEOMETRY_CYGNO04.md)
+'pmt_1_y' : 397.5, # INFERRED nominal
+'pmt_2_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/GEOMETRY_CYGNO04.md)
+'pmt_2_y' : 397.5, # INFERRED nominal
+'pmt_3_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/GEOMETRY_CYGNO04.md)
+'pmt_3_y' : 132.5, # INFERRED nominal
+'pmt_4_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/GEOMETRY_CYGNO04.md)
+'pmt_4_y' : 132.5, # INFERRED nominal
 
-'pmt_5_x' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_5_y' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_6_x' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_6_y' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_7_x' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_7_y' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_8_x' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_8_y' : 'REQUIRED', # Verified geometry required (mm)
+'pmt_5_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/GEOMETRY_CYGNO04.md)
+'pmt_5_y' : -132.5, # INFERRED nominal
+'pmt_6_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/GEOMETRY_CYGNO04.md)
+'pmt_6_y' : -132.5, # INFERRED nominal
+'pmt_7_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/GEOMETRY_CYGNO04.md)
+'pmt_7_y' : -397.5, # INFERRED nominal
+'pmt_8_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/GEOMETRY_CYGNO04.md)
+'pmt_8_y' : -397.5, # INFERRED nominal
 
 ## PMT time response
 'transit_time'          : 17,         # Average transit time of photoelectrons (ns)
@@ -149,20 +152,21 @@
 'twin_source_id': 'REQUIRED', # Stable dataset namespace; unique filenames within it.
 'twin_master_seed': 2026,
 'variant_id': 0,
-'twin_gem_xmin': 'REQUIRED',
-'twin_gem_xmax': 'REQUIRED',
-'twin_gem_ymin': 'REQUIRED',
-'twin_gem_ymax': 'REQUIRED',
-# AirBox XY projected lens centres, NOT calibrated optical footprints.
+'twin_gem_xmin' : -250., # Active GEM / field cage interior 500 mm (cygno_04_v3 FieldCage.stl, Cathode.stl)
+'twin_gem_xmax' : 250., # 
+'twin_gem_ymin' : -400., # Active GEM / field cage interior 800 mm
+'twin_gem_ymax' : 400., # 
+# Lens centres from CYGNO-MC g4v11.3_cygno04 (0,+265/0/-265, z=-1200 mm) = optical axes assumed normal to GEM.
+'twin_geometry_id': 'CYGNO04_nominal_v1',
 'twin_camera_0_x': 0.,
 'twin_camera_0_y': 265.,
-'twin_camera_0_angle_rad': 'REQUIRED',
+'twin_camera_0_angle_rad' : 0., # Sensor 4096-px axis along GEM X (landscape windows in CAD end plate)
 'twin_camera_1_x': 0.,
 'twin_camera_1_y': 0.,
-'twin_camera_1_angle_rad': 'REQUIRED',
+'twin_camera_1_angle_rad' : 0., # Sensor 4096-px axis along GEM X (landscape windows in CAD end plate)
 'twin_camera_2_x': 0.,
 'twin_camera_2_y': -265.,
-'twin_camera_2_angle_rad': 'REQUIRED',
+'twin_camera_2_angle_rad' : 0., # Sensor 4096-px axis along GEM X (landscape windows in CAD end plate)
 # Example design strata in mm, not detector measurements; equal min/max fixes a target.
 'twin_depth_0_min': 50.,
 'twin_depth_0_max': 100.,
@@ -183,6 +187,6 @@
 'twin_gas_temperature_k': 'REQUIRED',
 'twin_noise_mode': 'synthetic', # Offline provisional independent Gaussian sensor noise.
 'twin_pmt_noise_rms_v': 'REQUIRED',
-'twin_pmt_quantum_efficiency': 'REQUIRED', # Per-photon probability; no inherited LIME factor.
-'twin_camera_noise_rms_counts': 'REQUIRED',
+'twin_pmt_quantum_efficiency' : 0.15, # R7378 ~15% at 500 nm (arXiv:2510.01646 p.70)
+'twin_camera_noise_rms_counts' : 2.8, # Quest2 read noise 0.30 e- rms x (1/0.107) counts/e- (datasheet values in the code); no pedestal map
 }

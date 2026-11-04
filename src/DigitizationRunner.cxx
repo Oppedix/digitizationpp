@@ -229,7 +229,7 @@ void DigitizationRunner::SaveValues(shared_ptr<TFile>& outfile) {
         // DEBUG
         // cout<<key<<": "<<val<<endl;
         
-        if(key!="twin_gas" && key!="twin_noise_mode" && key!="twin_mc_commit" && key!="twin_side" && key!="twin_source_id" && key!="tag"       && key !="Vig_Map" &&
+        if(key!="twin_gas" && key!="twin_geometry_id" && key!="twin_noise_mode" && key!="twin_mc_commit" && key!="twin_side" && key!="twin_source_id" && key!="tag"       && key !="Vig_Map" &&
            key!="bckg_path" && key !="ped_cloud_dir" &&
            key!="noiserun"  && key !="bckg_name" &&
            key !="Camera_type" && key!="detector" &&
