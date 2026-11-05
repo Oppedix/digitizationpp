@@ -1,7 +1,7 @@
 # CYGNO04 ONE SIDE (L) - nominal geometry 'CYGNO04_nominal_v1'.
 # Values are taken from CAD (CYGNUS-RD/geometry cygno_04_v3 + cygno_04_v2), CYGNO-MC
 # g4v11.3_cygno04 and published CYGNO04 descriptions; PMT XY/height are INFERRED.
-# See docs/TWIN_DIGI_CHANGES.md for every source and derivation. The production gate
+# See doc/TWIN_DIGI_CHANGES.md for every source and derivation. The production gate
 # twin_geometry_verified stays False until the CYGNO hardware group confirms them.
 # Electronics/SPE settings are inherited LIME examples and require calibration.
 {
@@ -112,22 +112,22 @@
 'pmt_radius' : 11., # R7378A effective photocathode radius, as LIME
 
 ## PMT positions
-'pmt_1_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_1_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
 'pmt_1_y' : 397.5, # INFERRED nominal
-'pmt_2_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_2_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
 'pmt_2_y' : 397.5, # INFERRED nominal
-'pmt_3_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_3_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
 'pmt_3_y' : 132.5, # INFERRED nominal
-'pmt_4_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_4_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
 'pmt_4_y' : 132.5, # INFERRED nominal
 
-'pmt_5_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_5_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
 'pmt_5_y' : -132.5, # INFERRED nominal
-'pmt_6_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_6_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
 'pmt_6_y' : -132.5, # INFERRED nominal
-'pmt_7_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_7_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
 'pmt_7_y' : -397.5, # INFERRED nominal
-'pmt_8_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_8_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
 'pmt_8_y' : -397.5, # INFERRED nominal
 
 ## PMT time response

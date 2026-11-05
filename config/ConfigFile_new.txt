@@ -132,7 +132,7 @@
 'slow_freq'             : 250e6,      # Sampling frequency of slow digitizer (Hz)
 'digitizers'            : 'Both',     # Indicates which digitizers to simulate: 'Fast', 'Slow' or 'Both'
 
-# Fork additions (Oppedix/digitizationpp twin-cygno04), see docs/TWIN_DIGI_CHANGES.md:
+# Fork additions (Oppedix/digitizationpp twin-cygno04), see doc/TWIN_DIGI_CHANGES.md:
 # - CYGNO04 one camera + 8 PMTs, ordinary digitization: config/ConfigFile_CYGNO04_8PMT.txt
 # - TWIN paired-depth ML datasets ('twin_cygno04_mode': True): config/ConfigFile_TWIN_CYGNO04.txt
 # 'twin_cygno04_mode'   : False,      # Omitted/False = this standard digitizer, unchanged

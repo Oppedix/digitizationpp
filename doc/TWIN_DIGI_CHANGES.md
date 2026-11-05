@@ -13,7 +13,7 @@ Line numbers refer to this branch. They are written as `file:line` and link to t
 |---|---|---|
 | **Standard (upstream)** | `config/ConfigFile_new.txt` (LIME, 4 PMTs) | Same output as upstream `main` (§2) |
 | **CYGNO04, 1 camera + 8 PMTs** | `config/ConfigFile_CYGNO04_8PMT.txt` | Standard digitizer with `pmt_number: 8`: Quest2 central camera and 8 waveform pairs `wav_fast/slow_pmt1..8`. All legacy options still work (pedestal `bckg`, `Vignetting`, `redpix_output`, `digitizers`, random shifts, `fixed_seed`, PSD noise) |
-| **TWIN ML datasets** | `config/ConfigFile_TWIN_CYGNO04.txt` | `twin_cygno04_mode: True`: camera choice and paired depths, `ml_*`/`obs_*` truth records ([../doc/TWIN_SCHEMA.md](../doc/TWIN_SCHEMA.md)). Blocked until `twin_geometry_verified: True` |
+| **TWIN ML datasets** | `config/ConfigFile_TWIN_CYGNO04.txt` | `twin_cygno04_mode: True`: camera choice and paired depths, `ml_*`/`obs_*` truth records ([TWIN_SCHEMA.md](TWIN_SCHEMA.md)). Blocked until `twin_geometry_verified: True` |
 
 ## 2. Verified identical to upstream `main`
 
@@ -73,7 +73,7 @@ The three earlier drift-boundary fixes (fractional negative z, z ≥ 0 only, upp
 |---|---|
 | [TwinPlacement.h:14](../include/TwinPlacement.h#L14) | Deterministic choice of one of 3 cameras per parent track (FNV-1a + mt19937_64), and one rigid XY shift keeping **all** hits inside that FOV and the GEM. Z is moved to a target ionisation-weighted centroid per `variant_id` (0–3). The camera and XY are shared by the 4 variants, so the same track appears at 4 depths |
 | [TwinPlacement.h:73](../include/TwinPlacement.h#L73)/[:77](../include/TwinPlacement.h#L77) | `local`/`global`: the camera is rendered in its own frame ([DigitizationRunner.cxx:1071](../src/DigitizationRunner.cxx#L1071)). PMT light goes back to global GEM XY ([:1220](../src/DigitizationRunner.cxx#L1220)), so all 8 PMTs see the event where it really is |
-| [TwinML.h:147](../include/TwinML.h#L147), [DigitizationRunner.cxx:819](../src/DigitizationRunner.cxx#L819) | Per-event ML record: placed hits, QF energies, generated direction (joined to `tree1` by `eventnumber`), class, IDs, seeds, reject reason. Output contract: [TWIN_SCHEMA.md](../doc/TWIN_SCHEMA.md) |
+| [TwinML.h:147](../include/TwinML.h#L147), [DigitizationRunner.cxx:819](../src/DigitizationRunner.cxx#L819) | Per-event ML record: placed hits, QF energies, generated direction (joined to `tree1` by `eventnumber`), class, IDs, seeds, reject reason. Output contract: [TWIN_SCHEMA.md](TWIN_SCHEMA.md) |
 | [DigitizationRunner.cxx:1029](../src/DigitizationRunner.cxx#L1029) | Response weights are `energyDep_hits_QF` (ER and NR treated alike) |
 | [DigitizationRunner.cxx:1198](../src/DigitizationRunner.cxx#L1198), [:1209](../src/DigitizationRunner.cxx#L1209), [:1237](../src/DigitizationRunner.cxx#L1237) | PMT photoelectrons = photons × `photons_per_el` × `twin_pmt_quantum_efficiency` (upstream uses a fixed 0.0136). Signed drift times; t = 0 is the first detected photoelectron, not the smallest z |
 | [TwinML.h:134](../include/TwinML.h#L134), [PMTHits.cxx:53](../src/PMTHits.cxx#L53), [PMTSignal.cxx:58](../src/PMTSignal.cxx#L58), [TrackProcessor.cxx:709](../src/TrackProcessor.cxx#L709), [DigitizationRunner.cxx:81](../src/DigitizationRunner.cxx#L81) | Named seed streams (charge, collection, SPE, electronics) and one thread, so a rerun is bit-reproducible |

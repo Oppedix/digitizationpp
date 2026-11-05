@@ -1,6 +1,6 @@
 """Draw the CYGNO04 one-side PMT positions (and camera FOVs) from a digitizer config.
 Usage: python3 tools/plot_cygno04_geometry.py [config] [output.png]   (needs matplotlib)
-Default: config/ConfigFile_TWIN_CYGNO04.txt -> docs/cygno04_pmt_positions.png"""
+Default: config/ConfigFile_TWIN_CYGNO04.txt -> doc/cygno04_pmt_positions.png"""
 import ast, sys
 from pathlib import Path
 import matplotlib; matplotlib.use("Agg")
@@ -9,7 +9,7 @@ from matplotlib.patches import Rectangle, Circle
 
 repo = Path(__file__).resolve().parents[1]
 cfg = ast.literal_eval(Path(sys.argv[1] if len(sys.argv) > 1 else repo/"config/ConfigFile_TWIN_CYGNO04.txt").read_text())
-out = sys.argv[2] if len(sys.argv) > 2 else repo/"docs/cygno04_pmt_positions.png"
+out = sys.argv[2] if len(sys.argv) > 2 else repo/"doc/cygno04_pmt_positions.png"
 
 INK, INK2, MUTED, GRID = "#1f1f1e", "#5b5b57", "#8c8b85", "#e4e3dd"
 CAM = ["#2a78d6", "#eb6834", "#1baf7a"]          # validated categorical slots 1-3
