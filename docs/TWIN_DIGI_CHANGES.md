@@ -28,7 +28,7 @@ track, a track crossing `max_drift`, an empty event, a sub-`ion_pot` event, a lo
 * The only differences:
   * (a) a new branch `pmt_signal_valid`;
   * (b) `particle_type` of the empty event. Upstream reads `pdgID_hits[0]` of an empty vector, which is
-    undefined behaviour; this branch writes 0 ([DigitizationRunner.cxx:885](../src/DigitizationRunner.cxx#L885)).
+    undefined behaviour; this branch writes 0 ([DigitizationRunner.cxx:870](../src/DigitizationRunner.cxx#L870)).
 * The run had to use `min_drift: 1e-6`, because upstream `main` **aborts on the first event with its own
   default `min_drift: 0`** (§3).
 
@@ -36,13 +36,20 @@ track, a track crossing `max_drift`, an empty event, a sub-`ion_pot` event, a lo
 
 Upstream replaced `drift_length` with the response interval `[min_drift, max_drift]`, with defaults 0 and 510 mm.
 Its check `min_drift <= 0 → throw` rejects the default 0, so every run with `ConfigFile_new.txt` stops.
-This branch moves the check into one helper, [DigitizationRunner.cxx:40](../src/DigitizationRunner.cxx#L40):
+This branch moves the check into one helper, [DriftRange.h:11](../include/DriftRange.h#L11), used by both the
+runner and TWIN:
 
-* `min_drift` must be ≥ 0, and `max_drift` must be larger than `min_drift`. The defaults stay 0 and 510.
-* An old `drift_length` key now raises a clear error instead of being silently ignored.
-* The check runs once in the constructor ([:69](../src/DigitizationRunner.cxx#L69)), before any output is opened.
-  The interval itself is applied at [:1146](../src/DigitizationRunner.cxx#L1146)–[:1149](../src/DigitizationRunner.cxx#L1149).
-* TWIN requires exactly 0 and 500 mm ([TwinPlacement.h:46](../include/TwinPlacement.h#L46)).
+* **Rules:** `0 <= min_drift < max_drift`, and both values must be finite numbers. The defaults stay 0 and 510.
+* **Order check:** a swapped pair (`min_drift: 300`, `max_drift: 200`) or an empty interval is rejected.
+  Upstream would accept it and silently select no deposits.
+* **Removed key:** an old `drift_length` key now raises a clear error instead of being silently ignored.
+* **When it runs:** once in the constructor ([DigitizationRunner.cxx:54](../src/DigitizationRunner.cxx#L54)), before any
+  output is opened. The interval is applied at [:1131](../src/DigitizationRunner.cxx#L1131)–[:1134](../src/DigitizationRunner.cxx#L1134).
+* **TWIN:** requires exactly 0 and 500 mm ([TwinPlacement.h:47](../include/TwinPlacement.h#L47)).
+* **Tests:** [test_twin.cxx:98](../tests/test_twin.cxx#L98) covers the defaults, the shipped values, the swapped and empty
+  intervals, negative/NaN/inf/non-numeric values, `drift_length`, and the TWIN 0–500 requirement.
+* **Configs:** every config states the rule on its `min_drift`/`max_drift` lines
+  ([ConfigFile_new.txt:25](../config/ConfigFile_new.txt#L25)–26).
 * Upstream's second commit (`a079ff8`, setSeed revert) changes nothing here; this branch already had that `setSeed`.
 
 The three earlier drift-boundary fixes (fractional negative z, z ≥ 0 only, upper cut) are already upstream.
@@ -52,34 +59,34 @@ The three earlier drift-boundary fixes (fractional negative z, z ≥ 0 only, upp
 ### PMTs: 1–8 channels and two noise options
 | Where | Change |
 |---|---|
-| [PMTHits.cxx:17](../src/PMTHits.cxx#L17), [PMTHits.h:44](../include/PMTHits.h#L44) | `validateGeometry`: `pmt_number` must be an integer 1–8. Every `pmt_N_x/y`, `pmt_radius` and `dist_gem_pmt` must be finite (a `'REQUIRED'` placeholder fails). Called at [DigitizationRunner.cxx:75](../src/DigitizationRunner.cxx#L75), before any download |
+| [PMTHits.cxx:17](../src/PMTHits.cxx#L17), [PMTHits.h:44](../include/PMTHits.h#L44) | `validateGeometry`: `pmt_number` must be an integer 1–8. Every `pmt_N_x/y`, `pmt_radius` and `dist_gem_pmt` must be finite (a `'REQUIRED'` placeholder fails). Called at [DigitizationRunner.cxx:60](../src/DigitizationRunner.cxx#L60), before any download |
 | [PMTSignal.cxx:163](../src/PMTSignal.cxx#L163)–165 | Waveforms are made for `pmt_1..pmt_number`; upstream hard-codes 4 |
-| [DigitizationRunner.cxx:719](../src/DigitizationRunner.cxx#L719), [:797](../src/DigitizationRunner.cxx#L797), [:1264](../src/DigitizationRunner.cxx#L1264) | Branches `wav_fast_pmtN`/`wav_slow_pmtN` for N = 1..`pmt_number`, plus `pmt_signal_valid` (1 = light collected). LIME branch names are unchanged |
-| [DigitizationRunner.cxx:817](../src/DigitizationRunner.cxx#L817) | Events without light: **empty** waveforms as on main. Only TWIN zero-fills them to the window length |
+| [DigitizationRunner.cxx:704](../src/DigitizationRunner.cxx#L704), [:782](../src/DigitizationRunner.cxx#L782), [:1249](../src/DigitizationRunner.cxx#L1249) | Branches `wav_fast_pmtN`/`wav_slow_pmtN` for N = 1..`pmt_number`, plus `pmt_signal_valid` (1 = light collected). LIME branch names are unchanged |
+| [DigitizationRunner.cxx:802](../src/DigitizationRunner.cxx#L802) | Events without light: **empty** waveforms as on main. Only TWIN zero-fills them to the window length |
 | [PMTSignal.cxx:196](../src/PMTSignal.cxx#L196), [:238](../src/PMTSignal.cxx#L238) | **New** `pmt_noise` (default `True` = upstream). `False` gives noiseless waveforms (SPE + 12-bit quantization) and downloads nothing |
 | [PMTSignal.cxx:203](../src/PMTSignal.cxx#L203), [:245](../src/PMTSignal.cxx#L245) | **New** `pmt_noise_channels`, e.g. `'1;2;3;4;1;2;3;4'`: the PSD template each PMT uses. It is needed because the cloud only has `LIME_{fast,slow}_noise_pmt_1..4.txt` (`CYGNO04_*`, `GIN_*` and `MAN_*` return 404, checked 2026-11-05). Each PMT still gets independent random phases |
 | [PMTSignal.cxx:271](../src/PMTSignal.cxx#L271) | A missing or too-short PSD now raises an error; upstream read past the end of the array |
-| [DigitizationRunner.cxx:252](../src/DigitizationRunner.cxx#L252) | String-valued keys (`pmt_noise_channels`, `twin_*` text) are kept out of the numeric `param_dir` dump |
+| [DigitizationRunner.cxx:237](../src/DigitizationRunner.cxx#L237) | String-valued keys (`pmt_noise_channels`, `twin_*` text) are kept out of the numeric `param_dir` dump |
 
 ### TWIN mode (`twin_cygno04_mode: True` only)
 | Where | Change |
 |---|---|
-| [TwinPlacement.h:13](../include/TwinPlacement.h#L13) | Deterministic choice of one of 3 cameras per parent track (FNV-1a + mt19937_64), and one rigid XY shift keeping **all** hits inside that FOV and the GEM. Z is moved to a target ionisation-weighted centroid per `variant_id` (0–3). The camera and XY are shared by the 4 variants, so the same track appears at 4 depths |
-| [TwinPlacement.h:72](../include/TwinPlacement.h#L72)/[:76](../include/TwinPlacement.h#L76) | `local`/`global`: the camera is rendered in its own frame ([DigitizationRunner.cxx:1086](../src/DigitizationRunner.cxx#L1086)). PMT light goes back to global GEM XY ([:1235](../src/DigitizationRunner.cxx#L1235)), so all 8 PMTs see the event where it really is |
-| [TwinML.h:147](../include/TwinML.h#L147), [DigitizationRunner.cxx:834](../src/DigitizationRunner.cxx#L834) | Per-event ML record: placed hits, QF energies, generated direction (joined to `tree1` by `eventnumber`), class, IDs, seeds, reject reason. Output contract: [TWIN_SCHEMA.md](../doc/TWIN_SCHEMA.md) |
-| [DigitizationRunner.cxx:1044](../src/DigitizationRunner.cxx#L1044) | Response weights are `energyDep_hits_QF` (ER and NR treated alike) |
-| [DigitizationRunner.cxx:1213](../src/DigitizationRunner.cxx#L1213), [:1224](../src/DigitizationRunner.cxx#L1224), [:1252](../src/DigitizationRunner.cxx#L1252) | PMT photoelectrons = photons × `photons_per_el` × `twin_pmt_quantum_efficiency` (upstream uses a fixed 0.0136). Signed drift times; t = 0 is the first detected photoelectron, not the smallest z |
-| [TwinML.h:134](../include/TwinML.h#L134), [PMTHits.cxx:53](../src/PMTHits.cxx#L53), [PMTSignal.cxx:58](../src/PMTSignal.cxx#L58), [TrackProcessor.cxx:709](../src/TrackProcessor.cxx#L709), [DigitizationRunner.cxx:96](../src/DigitizationRunner.cxx#L96) | Named seed streams (charge, collection, SPE, electronics) and one thread, so a rerun is bit-reproducible |
+| [TwinPlacement.h:14](../include/TwinPlacement.h#L14) | Deterministic choice of one of 3 cameras per parent track (FNV-1a + mt19937_64), and one rigid XY shift keeping **all** hits inside that FOV and the GEM. Z is moved to a target ionisation-weighted centroid per `variant_id` (0–3). The camera and XY are shared by the 4 variants, so the same track appears at 4 depths |
+| [TwinPlacement.h:73](../include/TwinPlacement.h#L73)/[:77](../include/TwinPlacement.h#L77) | `local`/`global`: the camera is rendered in its own frame ([DigitizationRunner.cxx:1071](../src/DigitizationRunner.cxx#L1071)). PMT light goes back to global GEM XY ([:1220](../src/DigitizationRunner.cxx#L1220)), so all 8 PMTs see the event where it really is |
+| [TwinML.h:147](../include/TwinML.h#L147), [DigitizationRunner.cxx:819](../src/DigitizationRunner.cxx#L819) | Per-event ML record: placed hits, QF energies, generated direction (joined to `tree1` by `eventnumber`), class, IDs, seeds, reject reason. Output contract: [TWIN_SCHEMA.md](../doc/TWIN_SCHEMA.md) |
+| [DigitizationRunner.cxx:1029](../src/DigitizationRunner.cxx#L1029) | Response weights are `energyDep_hits_QF` (ER and NR treated alike) |
+| [DigitizationRunner.cxx:1198](../src/DigitizationRunner.cxx#L1198), [:1209](../src/DigitizationRunner.cxx#L1209), [:1237](../src/DigitizationRunner.cxx#L1237) | PMT photoelectrons = photons × `photons_per_el` × `twin_pmt_quantum_efficiency` (upstream uses a fixed 0.0136). Signed drift times; t = 0 is the first detected photoelectron, not the smallest z |
+| [TwinML.h:134](../include/TwinML.h#L134), [PMTHits.cxx:53](../src/PMTHits.cxx#L53), [PMTSignal.cxx:58](../src/PMTSignal.cxx#L58), [TrackProcessor.cxx:709](../src/TrackProcessor.cxx#L709), [DigitizationRunner.cxx:81](../src/DigitizationRunner.cxx#L81) | Named seed streams (charge, collection, SPE, electronics) and one thread, so a rerun is bit-reproducible |
 | [PMTSignal.cxx:183](../src/PMTSignal.cxx#L183), [TwinML.h:171](../include/TwinML.h#L171) | `twin_noise_mode: 'synthetic'`: seeded Gaussian PMT noise and camera read noise, added offline |
 | [TrackProcessor.cxx:101](../src/TrackProcessor.cxx#L101), 203/292/408/484, [:571](../src/TrackProcessor.cxx#L571), [:581](../src/TrackProcessor.cxx#L581) | Photon counts stay as `double` (no per-voxel `int` truncation). Legacy keeps the `int` truncation; this is bit-identical (§2) |
-| [DigitizationRunner.cxx:524](../src/DigitizationRunner.cxx#L524), [:593](../src/DigitizationRunner.cxx#L593), [:1080](../src/DigitizationRunner.cxx#L1080), [:1273](../src/DigitizationRunner.cxx#L1273) | Required MC branches are checked up front. A failing event is saved as an invalid record instead of aborting the run |
+| [DigitizationRunner.cxx:509](../src/DigitizationRunner.cxx#L509), [:578](../src/DigitizationRunner.cxx#L578), [:1065](../src/DigitizationRunner.cxx#L1065), [:1258](../src/DigitizationRunner.cxx#L1258) | Required MC branches are checked up front. A failing event is saved as an invalid record instead of aborting the run |
 | [CMakeLists.txt:98](../CMakeLists.txt#L98) | The git commit (with `-dirty` if there are local changes) is stored in every output file (`digitizer_commit`) |
 
 ## 5. New settings (all optional for the standard digitizer)
 
 | Key | Default | Meaning |
 |---|---|---|
-| `min_drift`, `max_drift` | 0, 510 mm | Upstream keys. Deposits with z outside the interval are excluded from the response. `drift_length` is no longer accepted |
+| `min_drift`, `max_drift` | 0, 510 mm | Upstream keys. Deposits with z outside the interval are excluded from the response. Rule: `0 <= min_drift < max_drift`. `drift_length` is no longer accepted |
 | `pmt_number` | 4 | Now 1–8 |
 | `pmt_noise` | `True` | `False` gives noiseless PMT waveforms |
 | `pmt_noise_channels` | identity | `';'`-separated PSD template channel per PMT |

@@ -31,24 +31,9 @@
 #include "PMTSignal.h"
 #include "TwinPlacement.h"
 #include "TwinML.h"
+#include "DriftRange.h"
 
 using namespace std;
-
-namespace {
-// Active drift interval [min_drift, max_drift] in mm used for the detector response
-// (upstream PR #59 keys; omitted keys give the upstream defaults 0 and 510 mm).
-std::pair<double,double> activeDriftRange(const ConfigManager& config) {
-    if (!config.get("drift_length").empty())
-        throw std::invalid_argument("drift_length was replaced by min_drift/max_drift (mm)");
-    const double lo = config.get("min_drift").empty() ? 0. : config.getDouble("min_drift");
-    const double hi = config.get("max_drift").empty() ? 510. : config.getDouble("max_drift");
-    if (!std::isfinite(lo) || lo < 0.)
-        throw std::invalid_argument("min_drift must be finite and >= 0 (mm)");
-    if (!std::isfinite(hi) || hi <= lo)
-        throw std::invalid_argument("max_drift must be finite and larger than min_drift (mm)");
-    return {lo, hi};
-}
-}
 
 DigitizationRunner::DigitizationRunner(const std::string& configFile_,
                                    const std::string& inputDir_,
@@ -66,7 +51,7 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
     
 
     config.validateAxisMappings();
-    activeDriftRange(config); // fail before any output or download
+    activeDriftRange(config.getOptions()); // fail before any output or download
     if (config.getBool("twin_cygno04_mode")) {
         TwinPlacement{config.getOptions()};
         TwinML::configuration(config.getOptions());
@@ -1143,7 +1128,7 @@ void DigitizationRunner::processRootFiles() {
                 std::vector<PMTVoxel> pmt_voxels; 
 
                 // Select response deposits without changing the complete-track metadata.
-                const auto [min_drift, max_drift] = activeDriftRange(config);
+                const auto [min_drift, max_drift] = activeDriftRange(config.getOptions());
                 vector<double> x_active, y_active, z_active, energy_active;
                 for (size_t i = 0; i < z_hits_tr.size(); ++i) {
                     if (z_hits_tr[i] >= min_drift && z_hits_tr[i] <= max_drift) {

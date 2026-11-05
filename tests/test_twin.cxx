@@ -94,4 +94,27 @@ int main(int argc,char** argv) {
     try {TwinPlacement invalid(options);} catch(const invalid_argument&) {rejected=true;} assert(rejected);
     svg<<"<text x='-280' y='-420' font-size='12'>SYNTHETIC ONLY: blue cameras, red PMTs, green tracks</text></svg>";
     cout<<"PASS: paired placement, centroid, containment, rigid truth, fixed PMTs and XY collection\n";
+
+    // Response drift interval (min_drift/max_drift, upstream PR #59) incl. the order check.
+    using Drift=map<string,string>;
+    assert((activeDriftRange({})==pair<double,double>{0.,510.}));                       // upstream defaults
+    assert((activeDriftRange(Drift{{"min_drift","0."},{"max_drift","510."}})==pair<double,double>{0.,510.})); // shipped config
+    assert((activeDriftRange(Drift{{"min_drift","20"},{"max_drift","480"}})==pair<double,double>{20.,480.}));
+    assert((activeDriftRange(Drift{{"max_drift","500"}})==pair<double,double>{0.,500.}));
+    for(const Drift& bad : vector<Drift>{
+            {{"min_drift","-1"}},                          // behind the GEM
+            {{"min_drift","300"},{"max_drift","200"}},     // swapped: would select nothing
+            {{"min_drift","200"},{"max_drift","200"}},     // empty interval
+            {{"max_drift","0"}}, {{"max_drift","nan"}}, {{"max_drift","inf"}},
+            {{"min_drift","abc"}}, {{"max_drift","500mm"}},
+            {{"drift_length","500"}}}) {                   // removed key must not be ignored silently
+        rejected=false;
+        try {activeDriftRange(bad);} catch(const invalid_argument&) {rejected=true;}
+        assert(rejected);
+    }
+    auto drift=original_options; drift["max_drift"]="510";            // TWIN needs exactly 0..500 mm
+    rejected=false; try {TwinPlacement invalid(drift);} catch(const invalid_argument&) {rejected=true;} assert(rejected);
+    drift.erase("min_drift"); drift["max_drift"]="500";               // omitted min_drift = 0 is accepted
+    TwinPlacement{drift};
+    cout<<"PASS: drift interval defaults, order check, invalid/removed keys, TWIN 0..500 requirement\n";
 }

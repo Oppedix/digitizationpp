@@ -22,8 +22,8 @@
 'y_dim'			: 346,       # second dimension of the detector
 
 # Geometry
-'min_drift'         : 0.,      # Response uses only deposits with min_drift <= z <= max_drift [mm], z = drift distance from GEM.
-'max_drift'         : 510.,      # Must be > min_drift; min_drift must be >= 0. Omitted keys -> 0 and 510 mm. (Replaces old 'drift_length'.)
+'min_drift'         : 0.,      # Response uses deposits with min_drift <= z <= max_drift [mm], z = drift distance from GEM. Rule: 0 <= min_drift < max_drift.
+'max_drift'         : 510.,      # Omitted keys -> 0 and 510 mm (upstream defaults). The old 'drift_length' key is rejected.
 'MC_xaxis'              : '-z',      # Digitization axis corrisponding to input x - axis (See README to check digitization ref. frame)
 'MC_yaxis'              : '-y',      # Digitization axis corrisponding to input y - axis (See README to check digitization ref. frame)
 'MC_zaxis'              : '-x',      # Digitization axis corrisponding to input z - axis (See README to check digitization ref. frame)

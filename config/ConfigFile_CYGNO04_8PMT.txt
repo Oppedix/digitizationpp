@@ -34,8 +34,8 @@
 'y_dim' : 299.52, # Camera FOV along GEM Y (80 cm side) [mm] = 2304 px x 0.130 mm; 16:9 Quest2
 
 # Geometry
-'min_drift'             : 0.,        # Response uses deposits with min_drift <= z <= max_drift [mm] (z = drift distance from GEM).
-'max_drift'             : 500.,      # CYGNO04 drift length (cathode at 500 mm). Omitted -> upstream default 510 mm.
+'min_drift'             : 0.,        # Response uses deposits with min_drift <= z <= max_drift [mm], z = drift distance from GEM. Rule: 0 <= min_drift < max_drift.
+'max_drift'             : 500.,      # CYGNO04 drift length (cathode at 500 mm). Omitted -> 510 mm. 'drift_length' is rejected.
 'MC_xaxis' : 'x', # Side L, CYGNO-MC world frame with /CYGNO/lab/select NoCave (TPC at origin)
 'MC_yaxis' : 'y', # MC y = 80 cm GEM side (CAD z after rotX(-90deg))
 'MC_zaxis' : 'z', # Side L: drift from GEM (MC z=-502.2) toward cathode (z=0). Side R: x->'-x', z->'-z'
