@@ -70,6 +70,20 @@ public:
     void gen_noise();
 
     /**
+     * @brief Optional 'pmt_noise' switch (default True). False gives noiseless waveforms.
+     */
+    static bool noiseEnabled(const map<string, string>& options);
+
+    /**
+     * @brief Noise template channel used by each PMT (index 0 -> pmt_1).
+     *
+     * Default: PMT i uses <detector>_{fast,slow}_noise_pmt_i.txt. The optional
+     * 'pmt_noise_channels' setting ('1;2;3;4;1;2;3;4') reuses existing templates,
+     * e.g. the four LIME PSDs for eight PMTs. Each PMT still gets independent phases.
+     */
+    static vector<int> noiseTemplateChannels(const map<string, string>& options, int num_pmts);
+
+    /**
      * @brief Converts Full Width at Half Maximum (FWHM) to standard deviation (sigma).
      * @param fwhm The FWHM value.
      * @return Corresponding sigma value for a Gaussian distribution.

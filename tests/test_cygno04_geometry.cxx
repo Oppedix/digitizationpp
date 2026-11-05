@@ -1,6 +1,6 @@
 // Consistency checks of the nominal CYGNO04 geometry in config/ConfigFile_TWIN_CYGNO04.txt.
 // It checks internal consistency (tiling, containment, symmetry, light sharing), NOT that the
-// inferred PMT positions match the as-built detector. See docs/GEOMETRY_CYGNO04.md.
+// inferred PMT positions match the as-built detector. See docs/TWIN_DIGI_CHANGES.md.
 #include "ConfigManager.h"
 #include "TwinPlacement.h"
 #include "PMTHits.h"

@@ -1,6 +1,15 @@
-# CYGNO04 ONE SIDE: REQUIRED geometry placeholders, NOT production-ready.
-# Replace every REQUIRED value with verified measurements in digitization mm.
-# Electronics/noise settings are inherited LIME examples and require calibration.
+# CYGNO04 ONE SIDE (L), ONE CAMERA + ALL 8 PMTs, ordinary (legacy) digitization.
+# This is the standard digitizer with pmt_number = 8: every legacy option (pedestal 'bckg',
+# vignetting, redpix_output, exposure_time_effect, random shifts, fixed_seed, Fast/Slow
+# digitizers, PSD noise) works exactly as with the LIME template ConfigFile_new.txt.
+# TWIN placement / ML records are NOT enabled here (see ConfigFile_TWIN_CYGNO04.txt).
+#
+# Geometry 'CYGNO04_nominal_v1' (docs/TWIN_DIGI_CHANGES.md): Quest2 central camera
+# (lens at GEM y = 0), FOV 532.48 x 299.52 mm. The PMT XY are given in the frame of the
+# SIMULATED camera (image centre = (0,0)). For the central camera this equals the GEM frame.
+# To simulate the upper/lower camera instead, subtract its centre (y = +265 / -265 mm)
+# from every pmt_N_y and set y_offset = -265 / +265 so the same MC hits land in that FOV.
+# PMT XY and dist_gem_pmt are INFERRED, not measured. Electronics/SPE settings are LIME values.
 {
 # Detector physics
 ## diffusion parameters from https://arxiv.org/pdf/2007.00608.pdf
@@ -21,18 +30,19 @@
 'GEM2_HV'               : 440.,      # HV of GEM2
 'GEM3_HV'               : 440.,      # HV of GEM3
 
-'x_dim'			: 346,       # first dimension of the detector
-'y_dim'			: 346,       # second dimension of the detector
+'x_dim' : 532.48, # Camera FOV along GEM X (50 cm side) [mm] = 4096 px x 0.130 mm (arXiv:2510.01646 p.70)
+'y_dim' : 299.52, # Camera FOV along GEM Y (80 cm side) [mm] = 2304 px x 0.130 mm; 16:9 Quest2
 
 # Geometry
-'drift_length'         : 500.,      # Active Z interval [0, drift_length] in mm; omit for no upper cut.
-'MC_xaxis'              : '-z',      # Digitization axis corrisponding to input x - axis (See README to check digitization ref. frame)
-'MC_yaxis'              : '-y',      # Digitization axis corrisponding to input y - axis (See README to check digitization ref. frame)
-'MC_zaxis'              : '-x',      # Digitization axis corrisponding to input z - axis (See README to check digitization ref. frame)
+'min_drift'             : 0.,        # Response uses deposits with min_drift <= z <= max_drift [mm] (z = drift distance from GEM).
+'max_drift'             : 500.,      # CYGNO04 drift length (cathode at 500 mm). Omitted -> upstream default 510 mm.
+'MC_xaxis' : 'x', # Side L, CYGNO-MC world frame with /CYGNO/lab/select NoCave (TPC at origin)
+'MC_yaxis' : 'y', # MC y = 80 cm GEM side (CAD z after rotX(-90deg))
+'MC_zaxis' : 'z', # Side L: drift from GEM (MC z=-502.2) toward cathode (z=0). Side R: x->'-x', z->'-z'
 
-'x_offset'              : 0.,        # Position [mm] of the origin of the input MC ref. frame in the digitization ref. frame along the x axis (of digitization ref. frame)
-'y_offset'              : 0.,        # Position [mm] of the origin of the input MC ref. frame in the digitization ref. frame along the y axis (of digitization ref. frame)
-'z_offset'              : 265.,      # Position [mm] of the origin of the input MC ref. frame in the digitization ref. frame along the z axis (of digitization ref. frame)
+'x_offset' : 0., # MC x centred on GEM (CAD x + 470 mm)
+'y_offset' : 0., # MC y centred on GEM
+'z_offset' : 502.2, # Side L innermost GEM foil at MC z=-502.2 mm (cygno_04_v3/GEM.stl); side R: 501.2
 
 'x_extra'               : 0.,        # Extra distance in x (of digitization ref. frame) from center of the image [mm]
 'y_extra'               : 0.,        # Extra distance in y (of digitization ref. frame) from center of the image [mm]
@@ -53,7 +63,7 @@
 # at camera edges. Sampled shifts are saved as placement_dx_mm/dy_mm/dz_mm.
 
 # Camera parameters
-'Camera_type'		: 'Fusion',   # Possibilities: Fusion, Quest1, Quest2
+'Camera_type' : 'Quest2', # CYGNO04: Hamamatsu ORCA-Quest2 qCMOS, 4096x2304
 'camera_aperture'       : 0.95,
 'exposure_time_effect'  : False,      # if True simulates the effect of tracks cut by the sensor being not fully exposed
 'exposure_time'         : 300,       # exposure time in milliseconds
@@ -68,7 +78,9 @@
 'alpha_G'               : 0.0209,    # exponential factor or the Gain saturation model
 
 # Background
-'bckg'                  : True,      # if 'True' background is added
+'bckg'                  : False,      # if 'True' a real camera pedestal is added. Pedestal runs MUST come from the same
+                                      # camera type: the code stops if a Fusion (square) pedestal meets a Quest2 image.
+                                      # The runs below are the upstream LIME defaults: replace them with CYGNO04 Quest2 runs.
 'tag'			: 'Data',    # Set 'Data' to download a real pedestal run
 'noiserun'              : '94900;94564;94130',      # pedestal runs to add as background separated by ';'
 'ped_cloud_dir'         : 'LNGS',    # directory inside the cloud bucket where the pedestal run is located
@@ -78,7 +90,7 @@
 'start_event'		: 0,         # index of the first event to digitize
 
 # Vignetting
-'Vignetting'		: True,      #Add vignetting effect according to the MAP
+'Vignetting' : False, # No Quest2/CYGNO04 vignetting map in this repo (deferred response uncertainty)
 'Vig_Map'		: 'vignette_runs03930to03932.root',
 
 # Operative parameters
@@ -94,35 +106,41 @@
 'queue'                 : 0,	     # If you are sending to the CNAF queue write 1. The outputfiles will be forced to be written in local folder to be sent to cloud
 'redpix_output'         : True,       # Signal-only sparse pixels + event_info, no camera images/pedestal noise; output digi_RunXXXXX.root. False saves images.
 
-'save_mc_first3_hits'   : True,       # Save first 3 original GEANT hits; generated direction must be joined from MC truth.
+'save_mc_first3_hits'   : False,       # Save first 3 original GEANT hits; generated direction must be joined from MC truth.
 
 ## PMT side
 # PMT simulation parameters
 'pmt_mode'              : True,       # 'True' for PMT simulation
 'pmt_noise_cloud_dir'       : 'cygno-sim/Useful_for_digi/PMTnoise_template',    # directory inside the cloud bucket where the noise files are located
-'detector'              : 'CYGNO04',      # This will allow to select the noise files (LIME, GIN, MAN, CYGNO04, CUSTOM)
-'pmt_number'            : 8,          # Number of PMTs
-'dist_gem_pmt'          : 'REQUIRED', # Verified geometry required (mm)
-'pmt_radius'            : 'REQUIRED', # Verified geometry required (mm)
+'detector'              : 'LIME',      # Prefix of the PMT noise template files (LIME, GIN, MAN, CYGNO04, CUSTOM)
+'pmt_number'            : 8,          # Number of PMTs (1-8): 8 branches wav_fast_pmt1..8 / wav_slow_pmt1..8
+'pmt_noise'             : True,       # True: add noise generated from the measured PSD templates (legacy behaviour).
+                                      # False: noiseless waveforms (SPE pulses + 12-bit quantization only), no download.
+'pmt_noise_channels'    : '1;2;3;4;1;2;3;4', # PSD template used by PMT 1..8 ('<detector>_fast/slow_noise_pmt_<N>.txt').
+                                      # Needed because only LIME_*_noise_pmt_1..4.txt exist on the cloud (checked 2026-11-05).
+                                      # Each PMT still gets an independent noise realization. Delete this line once the
+                                      # CYGNO04_*_noise_pmt_1..8.txt templates exist and set 'detector' to 'CYGNO04'.
+'dist_gem_pmt' : 402., # INFERRED: PMT window-GEM distance from cygno_04_v2/pmts.stl (only CAD with PMTs)
+'pmt_radius' : 11., # R7378A effective photocathode radius, as LIME
 
 ## PMT positions
-'pmt_1_x'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_1_y'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_2_x'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_2_y'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_3_x'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_3_y'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_4_x'               : 'REQUIRED', # Verified geometry required (mm)
-'pmt_4_y'               : 'REQUIRED', # Verified geometry required (mm)
+'pmt_1_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_1_y' : 397.5, # INFERRED nominal
+'pmt_2_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_2_y' : 397.5, # INFERRED nominal
+'pmt_3_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_3_y' : 132.5, # INFERRED nominal
+'pmt_4_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_4_y' : 132.5, # INFERRED nominal
 
-'pmt_5_x' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_5_y' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_6_x' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_6_y' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_7_x' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_7_y' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_8_x' : 'REQUIRED', # Verified geometry required (mm)
-'pmt_8_y' : 'REQUIRED', # Verified geometry required (mm)
+'pmt_5_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_5_y' : -132.5, # INFERRED nominal
+'pmt_6_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_6_y' : -132.5, # INFERRED nominal
+'pmt_7_x' : -190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_7_y' : -397.5, # INFERRED nominal
+'pmt_8_x' : 190.0, # INFERRED nominal: shared camera-tile corner (docs/TWIN_DIGI_CHANGES.md)
+'pmt_8_y' : -397.5, # INFERRED nominal
 
 ## PMT time response
 'transit_time'          : 17,         # Average transit time of photoelectrons (ns)
@@ -140,5 +158,4 @@
 'fast_freq'             : 750e6,      # Sampling frequency of fast digitizer (Hz)
 'slow_freq'             : 250e6,      # Sampling frequency of slow digitizer (Hz)
 'digitizers'            : 'Both',     # Indicates which digitizers to simulate: 'Fast', 'Slow' or 'Both'
-
 }

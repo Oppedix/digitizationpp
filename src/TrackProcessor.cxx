@@ -98,6 +98,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
         double optA                 = config.getDouble("A");
         double optbeta              = config.getDouble("beta");
         double optphotons_per_el    = config.getDouble("photons_per_el");
+        const bool twin_mode        = config.getBool("twin_cygno04_mode"); // looked up once, used per voxel
 
         //Timing and debug variables
         long int size_tot=0;
@@ -199,7 +200,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                     int xx = (key - yy * N - zz) / N / M;
                     // optbeta is multiplied by factors to normalize on volume chosen
                     double n_ph_val = Nph_saturation(val, optA, optbeta*xy_vox_scale*xy_vox_scale*0.1/zbin_dim);
-                    hout[xx][yy]+= config.getBool("twin_cygno04_mode") ? n_ph_val : static_cast<int>(n_ph_val);
+                    hout[xx][yy]+= twin_mode ? n_ph_val : static_cast<int>(n_ph_val);
 
                     // --- PMT Simulation Integration ---
                     if (n_ph_val > 0) {
@@ -288,7 +289,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                     int xx = (key - yy * N - zz) / N / M;
                     // optbeta is multiplied by factors to normalize on volume chosen
                     double n_ph_val = Nph_saturation(val, optA, optbeta*xy_vox_scale*xy_vox_scale*0.1/zbin_dim);
-                    hout[xx][yy]+= config.getBool("twin_cygno04_mode") ? n_ph_val : static_cast<int>(n_ph_val);
+                    hout[xx][yy]+= twin_mode ? n_ph_val : static_cast<int>(n_ph_val);
                     
                     // --- PMT Simulation Integration ---
                     if (n_ph_val > 0) {
@@ -404,7 +405,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                                     // optbeta is multiplied by factors to normalize on volume chosen
                                     double n_ph_val = Nph_saturation(hc[xx][yy][zz], optA, optbeta*xy_vox_scale*xy_vox_scale*0.1/zbin_dim);
 
-                                    hout[xx][yy] += config.getBool("twin_cygno04_mode") ? n_ph_val : static_cast<int>(n_ph_val);
+                                    hout[xx][yy] += twin_mode ? n_ph_val : static_cast<int>(n_ph_val);
                                     
                                     // --- PMT Simulation Integration ---
                                     if (n_ph_val > 0) {
@@ -480,7 +481,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                                     // optbeta is multiplied by factors to normalize on volume chosen
                                     double n_ph_val = Nph_saturation(hc[xx][yy][zz], optA, optbeta*xy_vox_scale*xy_vox_scale*0.1/zbin_dim);
 
-                                    hout[xx][yy] += config.getBool("twin_cygno04_mode") ? n_ph_val : static_cast<int>(n_ph_val);
+                                    hout[xx][yy] += twin_mode ? n_ph_val : static_cast<int>(n_ph_val);
 
                                     // --- PMT Simulation Integration ---
                                     if (n_ph_val > 0) {
@@ -566,7 +567,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                     }
                     
                     // Generate number of photons reaching camera
-                    const double _number_of_photons = config.getBool("twin_cygno04_mode")
+                    const double _number_of_photons = twin_mode
                         ? gRandom->PoissonD(image[ii][jj] * _vigtmp * omega * camera_quantum_efficiency * optphotons_per_el)
                         : gRandom->Poisson(static_cast<double>(image[ii][jj])
                                                                    * _vigtmp
@@ -577,7 +578,7 @@ bool TrackProcessor::computeWithSaturation(const vector<double>& x_hits_tr,
                     // Average number of electrons
                     const double _mu = static_cast<double>(_number_of_photons) * optcounts_per_photon;
 
-                    image[ii][jj] = config.getBool("twin_cygno04_mode") ? _mu : static_cast<int>(_mu);
+                    image[ii][jj] = twin_mode ? _mu : static_cast<int>(_mu);
                     // Fluctuations of electrons // not needed if we sum random pedestal!!!
                     // if(_mu!=0) {
                     //     const double _smeared = gRandom-> Gaus(_mu, camera_electron_rms*optcounts_per_photon);

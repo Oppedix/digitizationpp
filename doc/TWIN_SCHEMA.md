@@ -65,7 +65,7 @@ side-local GEM frame**, before diffusion. Axis permutation/sign follows MC_*axis
 positions additionally receive configured offsets/extras and rigid XYZ placement.
 Directions receive only the signed permutation and normalization. Camera roll is
 not applied to common-GEM truth. To obtain camera-frame truth, use the inverse
-camera transform documented in TWIN.md; its Z component is unchanged. Never use
+camera transform documented in ../docs/TWIN_DIGI_CHANGES.md; its Z component is unchanged. Never use
 geometric theta/phi or first-hit differences as the generated direction.
 
 | Branch | ROOT/C++ type, shape, unit | Role |

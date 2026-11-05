@@ -22,8 +22,8 @@
 'y_dim'			: 346,       # second dimension of the detector
 
 # Geometry
-'min_drift'         : 0.,      # Active Z interval [min_drift, max_drift] in mm; omit for no upper cut.
-'max_drift'         : 510.,      # Active Z interval [min_drift, max_drift] in mm; omit for no upper cut.
+'min_drift'         : 0.,      # Response uses only deposits with min_drift <= z <= max_drift [mm], z = drift distance from GEM.
+'max_drift'         : 510.,      # Must be > min_drift; min_drift must be >= 0. Omitted keys -> 0 and 510 mm. (Replaces old 'drift_length'.)
 'MC_xaxis'              : '-z',      # Digitization axis corrisponding to input x - axis (See README to check digitization ref. frame)
 'MC_yaxis'              : '-y',      # Digitization axis corrisponding to input y - axis (See README to check digitization ref. frame)
 'MC_zaxis'              : '-x',      # Digitization axis corrisponding to input z - axis (See README to check digitization ref. frame)
@@ -99,7 +99,9 @@
 'pmt_mode'              : True,       # 'True' for PMT simulation
 'pmt_noise_cloud_dir'       : 'cygno-sim/Useful_for_digi/PMTnoise_template',    # directory inside the cloud bucket where the noise files are located
 'detector'              : 'LIME',      # This will allow to select the noise files (LIME, GIN, MAN, CYGNO04, CUSTOM)
-'pmt_number'            : 4,          # Number of PMTs
+'pmt_number'            : 4,          # Number of PMTs, 1-8. Each needs pmt_N_x/pmt_N_y; output branches wav_fast/slow_pmt1..N
+'pmt_noise'             : True,       # Optional, default True: add PSD noise from '<detector>_fast/slow_noise_pmt_N.txt'. False: noiseless waveforms
+# 'pmt_noise_channels'  : '1;2;3;4',  # Optional: PSD template channel used by PMT 1..N (e.g. '1;2;3;4;1;2;3;4' reuses the 4 LIME files for 8 PMTs)
 'dist_gem_pmt'          : 190,        # Z distance from GEM plane (GEM is at z = 0)
 'pmt_radius'            : 11,         # Radius of PMT R7378A
 
@@ -129,5 +131,10 @@
 'fast_freq'             : 750e6,      # Sampling frequency of fast digitizer (Hz)
 'slow_freq'             : 250e6,      # Sampling frequency of slow digitizer (Hz)
 'digitizers'            : 'Both',     # Indicates which digitizers to simulate: 'Fast', 'Slow' or 'Both'
+
+# Fork additions (Oppedix/digitizationpp twin-cygno04), see docs/TWIN_DIGI_CHANGES.md:
+# - CYGNO04 one camera + 8 PMTs, ordinary digitization: config/ConfigFile_CYGNO04_8PMT.txt
+# - TWIN paired-depth ML datasets ('twin_cygno04_mode': True): config/ConfigFile_TWIN_CYGNO04.txt
+# 'twin_cygno04_mode'   : False,      # Omitted/False = this standard digitizer, unchanged
 
 }

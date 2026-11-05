@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <limits.h>
+#include <limits>
 #include <utility>
 #include <stdexcept>
 #include <regex>
@@ -32,6 +33,22 @@
 #include "TwinML.h"
 
 using namespace std;
+
+namespace {
+// Active drift interval [min_drift, max_drift] in mm used for the detector response
+// (upstream PR #59 keys; omitted keys give the upstream defaults 0 and 510 mm).
+std::pair<double,double> activeDriftRange(const ConfigManager& config) {
+    if (!config.get("drift_length").empty())
+        throw std::invalid_argument("drift_length was replaced by min_drift/max_drift (mm)");
+    const double lo = config.get("min_drift").empty() ? 0. : config.getDouble("min_drift");
+    const double hi = config.get("max_drift").empty() ? 510. : config.getDouble("max_drift");
+    if (!std::isfinite(lo) || lo < 0.)
+        throw std::invalid_argument("min_drift must be finite and >= 0 (mm)");
+    if (!std::isfinite(hi) || hi <= lo)
+        throw std::invalid_argument("max_drift must be finite and larger than min_drift (mm)");
+    return {lo, hi};
+}
+}
 
 DigitizationRunner::DigitizationRunner(const std::string& configFile_,
                                    const std::string& inputDir_,
@@ -49,6 +66,7 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
     
 
     config.validateAxisMappings();
+    activeDriftRange(config); // fail before any output or download
     if (config.getBool("twin_cygno04_mode")) {
         TwinPlacement{config.getOptions()};
         TwinML::configuration(config.getOptions());
@@ -57,6 +75,9 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
         PhotonPropagation::validateGeometry(config.getOptions());
         if (config.getInt("fast_window_len") <= 0 || config.getInt("slow_window_len") <= 0)
             throw invalid_argument("PMT waveform lengths must be positive");
+        SignalSimulation::noiseTemplateChannels(config.getOptions(),
+            PhotonPropagation::validateGeometry(config.getOptions()));
+        SignalSimulation::noiseEnabled(config.getOptions());
     }
 
     
@@ -228,7 +249,7 @@ void DigitizationRunner::SaveValues(shared_ptr<TFile>& outfile) {
         // DEBUG
         // cout<<key<<": "<<val<<endl;
         
-        if(key!="twin_gas" && key!="twin_geometry_id" && key!="twin_noise_mode" && key!="twin_mc_commit" && key!="twin_side" && key!="twin_source_id" && key!="tag"       && key !="Vig_Map" &&
+        if(key!="twin_gas" && key!="twin_geometry_id" && key!="twin_noise_mode" && key!="twin_mc_commit" && key!="twin_side" && key!="twin_source_id" && key!="pmt_noise_channels" && key!="tag"       && key !="Vig_Map" &&
            key!="bckg_path" && key !="ped_cloud_dir" &&
            key!="noiserun"  && key !="bckg_name" &&
            key !="Camera_type" && key!="detector" &&
@@ -448,6 +469,7 @@ void DigitizationRunner::FillRedpix(const std::vector<std::vector<double>>& imag
 
     const int nRows = image.size();
     const int nCols = image[0].size();
+    const bool twin_mode = config.getBool("twin_cygno04_mode");
 
     for (int ix = 0; ix < nRows; ++ix) {
         for (int iy = 0; iy < nCols; ++iy) {
@@ -457,7 +479,7 @@ void DigitizationRunner::FillRedpix(const std::vector<std::vector<double>>& imag
                 // must be swapped here
                 redpix_ix->push_back(static_cast<uint16_t>(ix));
                 redpix_iy->push_back(static_cast<uint16_t>(iy));
-                redpix_iz->push_back(static_cast<uint16_t>(config.getBool("twin_cygno04_mode") ? std::min(content,65535.) : content));
+                redpix_iz->push_back(static_cast<uint16_t>(twin_mode ? std::min(content,65535.) : content));
                 
             }
         }
@@ -792,10 +814,16 @@ void DigitizationRunner::processRootFiles() {
                 redpix_iz->clear();
                 
                 if (config.getBool("pmt_mode")) {
-                    // Skipped/no-light events retain declared lengths, with validity zero.
+                    // Legacy: skipped/no-light events keep empty waveforms, as on main.
+                    // TWIN: fixed-length zero waveforms so every ML record has the same shape.
                     for (int i = 0; i < pmt_count; ++i) {
-                        wav_fast[i].assign(config.getInt("fast_window_len"), 0.);
-                        wav_slow[i].assign(config.getInt("slow_window_len"), 0.);
+                        if (twin_mode) {
+                            wav_fast[i].assign(config.getInt("fast_window_len"), 0.);
+                            wav_slow[i].assign(config.getInt("slow_window_len"), 0.);
+                        } else {
+                            wav_fast[i].clear();
+                            wav_slow[i].clear();
+                        }
                         pmt_signal_valid[i] = 0;
                     }
                 }
@@ -1115,15 +1143,7 @@ void DigitizationRunner::processRootFiles() {
                 std::vector<PMTVoxel> pmt_voxels; 
 
                 // Select response deposits without changing the complete-track metadata.
-                const double min_drift = config.get("min_drift").empty()
-                    ? 0. : config.getDouble("min_drift");
-                const double max_drift = config.get("max_drift").empty()
-                    ? 510. : config.getDouble("max_drift");
-
-                if (!std::isfinite(min_drift) || min_drift <= 0.)
-                    throw std::invalid_argument("min_drift must be finite and positive (mm)");
-                if (!std::isfinite(max_drift) || max_drift <= 0.)
-                    throw std::invalid_argument("max_drift must be finite and positive (mm)");
+                const auto [min_drift, max_drift] = activeDriftRange(config);
                 vector<double> x_active, y_active, z_active, energy_active;
                 for (size_t i = 0; i < z_hits_tr.size(); ++i) {
                     if (z_hits_tr[i] >= min_drift && z_hits_tr[i] <= max_drift) {

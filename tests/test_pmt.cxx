@@ -116,11 +116,20 @@ int main(int argc, char** argv) {
             auto pmt_hits_map=light;
 #include "assign.inc"
             outtree->Fill();
+            {   // Legacy mode: skipped/no-light events keep empty waveforms, as on upstream main.
+                const bool twin_mode=false;
 #include "reset.inc"
-            for(int i=0;i<count;++i) {
-                assert(wav_fast[i].size()==2048 && wav_slow[i].size()==2048);
-                assert(all_of(wav_fast[i].begin(),wav_fast[i].end(),[](double x){return x==0.;}));
-                assert(pmt_signal_valid[i]==0);
+                for(int i=0;i<count;++i) assert(wav_fast[i].empty() && wav_slow[i].empty() && pmt_signal_valid[i]==0);
+            }
+            outtree->Fill();
+            {   // TWIN mode: fixed-length zero waveforms for every ML record.
+                const bool twin_mode=true;
+#include "reset.inc"
+                for(int i=0;i<count;++i) {
+                    assert(wav_fast[i].size()==2048 && wav_slow[i].size()==2048);
+                    assert(all_of(wav_fast[i].begin(),wav_fast[i].end(),[](double x){return x==0.;}));
+                    assert(pmt_signal_valid[i]==0);
+                }
             }
             outtree->Fill(); outtree->Write();
             outtree->ResetBranchAddresses(); outtree.reset();
@@ -130,7 +139,8 @@ int main(int argc, char** argv) {
             vector<double>* wave=nullptr;
             tree->SetBranchAddress(("wav_fast_pmt"+to_string(count)).c_str(),&wave);
             tree->GetEntry(0); assert(any_of(wave->begin(),wave->end(),[](double x){return x!=0.;}));
-            tree->GetEntry(1); assert(wave->size()==2048);
+            tree->GetEntry(1); assert(wave->empty());
+            tree->GetEntry(2); assert(wave->size()==2048);
             assert(all_of(wave->begin(),wave->end(),[](double x){return x==0.;}));
             tree->ResetBranchAddresses(); delete wave;
         }
@@ -148,6 +158,32 @@ int main(int argc, char** argv) {
             const auto& disabled = digitizer=="Fast" ? slow_signals : fast_signals;
             assert(all_of(disabled.at("pmt_1").begin(),disabled.at("pmt_1").end(),[](double x){return x==0.;}));
         }
+        // pmt_noise switch and template remapping (legacy default = identity, noise on).
+        assert(SignalSimulation::noiseEnabled(options));
+        assert(SignalSimulation::noiseTemplateChannels(options,count)==[&]{vector<int> v; for(int i=1;i<=count;++i) v.push_back(i); return v;}());
+        for (const string bad : {"0;1","a","1;2","1.5"}) {
+            auto invalid=options; invalid["pmt_noise_channels"]=bad; rejected=false;
+            try { SignalSimulation::noiseTemplateChannels(invalid,count); } catch(const invalid_argument&) { rejected=true; }
+            assert(rejected);
+        }
+        {   // Templates exist only for channel 1: every PMT reuses it, no other file is read.
+            auto mapped=options; mapped["detector"]="ONLY1"; mapped["pmt_noise_channels"]="1";
+            for(int i=2;i<=count;++i) mapped["pmt_noise_channels"]+=";1";
+            for(const string type : {"fast","slow"}) {
+                ofstream file(temp+"/pmt/ONLY1_"+type+"_noise_pmt_1.txt");
+                for(int n=0;n<2001;++n) file << "0\n";
+            }
+            SignalSimulation reused({},mapped,temp+"/");
+            assert(reused.fast_noise_.size()==static_cast<size_t>(count));
+            auto silent=options; silent["detector"]="NOFILES"; silent["pmt_noise"]="False";
+            SignalSimulation quiet(light,silent,temp+"/"); quiet.gen.seed(42);
+            map<string,vector<double>> qf,qs; quiet.simulated_signals(qf,qs);
+            for(int i=1;i<=count;++i) assert(qf.at("pmt_"+to_string(i)).size()==2048 &&
+                all_of(quiet.fast_noise_.at("pmt_"+to_string(i)).begin(),quiet.fast_noise_.at("pmt_"+to_string(i)).end(),[](double x){return x==0.;}));
+            auto bad=options; bad["pmt_noise"]="maybe"; rejected=false;
+            try { SignalSimulation::noiseEnabled(bad); } catch(const invalid_argument&) { rejected=true; }
+            assert(rejected);
+        }
         auto defaults=options;
         defaults["fast_window_len"]="1024"; defaults["slow_window_len"]="4000";
         SignalSimulation lengths({},defaults,temp+"/");
@@ -155,9 +191,11 @@ int main(int argc, char** argv) {
         assert(fast_signals.at("pmt_1").size()==1024 && slow_signals.at("pmt_1").size()==4000);
         cout << "PASS: "<<count<<" PMTs, geometry, shared fast/slow realization, lengths, ROOT roundtrip, empty/consecutive events\n";
     }
+    // The CYGNO04 one-camera template is now complete and runnable with 8 PMTs.
     ConfigManager production;
     assert(production.loadConfig(repo+"/config/ConfigFile_CYGNO04_8PMT.txt"));
-    bool rejected=false;
-    try { PhotonPropagation::validateGeometry(production.getOptions()); } catch(const invalid_argument&) { rejected=true; }
-    assert(rejected);
+    assert(PhotonPropagation::validateGeometry(production.getOptions())==8);
+    assert(SignalSimulation::noiseTemplateChannels(production.getOptions(),8)==(vector<int>{1,2,3,4,1,2,3,4}));
+    assert(production.get("twin_cygno04_mode").empty() && production.get("min_drift")=="0." && production.get("max_drift")=="500.");
+    cout << "PASS: CYGNO04 8-PMT template, noise switch and template remapping\n";
 }

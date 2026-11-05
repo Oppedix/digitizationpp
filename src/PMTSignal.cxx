@@ -17,6 +17,7 @@
 #include <iostream>
 #include <chrono>
 #include <stdexcept>
+#include <sstream>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core/utility.hpp>
@@ -192,12 +193,19 @@ void SignalSimulation::gen_noise() {
         }
         return; // Offline provisional white voltage noise, no PSD download.
     }
-    vector<string> pmts;
-    for(int i=1;i<=num_pmts_;i++)
-            pmts.push_back("pmt_"+to_string(i));
+    if (!noiseEnabled(options_)) {
+        for (int i = 1; i <= num_pmts_; ++i) {
+            fast_noise_["pmt_"+to_string(i)].assign(fast_window_len_, 0.);
+            slow_noise_["pmt_"+to_string(i)].assign(slow_window_len_, 0.);
+        }
+        return; // pmt_noise False: SPE pulses and ADC quantization only, no PSD download.
+    }
+    const vector<int> templates = noiseTemplateChannels(options_, num_pmts_);
 
-    for (const auto& pmt : pmts) {
-        string fname = f_DETECTOR+"_fast_noise_"+pmt+".txt";
+    for (int i = 1; i <= num_pmts_; ++i) {
+        const string pmt = "pmt_" + to_string(i);
+        const string source = "pmt_" + to_string(templates[i-1]); // == pmt unless remapped
+        string fname = f_DETECTOR+"_fast_noise_"+source+".txt";
         string localname_fast = f_SOURCE_DIR+"pmt/"+fname;
 
         if(!std::filesystem::exists(localname_fast.c_str())) {
@@ -208,7 +216,7 @@ void SignalSimulation::gen_noise() {
             if(ret!=0) cout<<"Ouch error using system moving file "<<fname<<endl;
         }
 
-        fname = f_DETECTOR+"_slow_noise_"+pmt+".txt";
+        fname = f_DETECTOR+"_slow_noise_"+source+".txt";
         string localname_slow = f_SOURCE_DIR+"pmt/"+fname;
 
         if(!std::filesystem::exists(localname_slow.c_str())) {
@@ -225,6 +233,35 @@ void SignalSimulation::gen_noise() {
         fast_noise_[pmt] = compute_noise(fast_psd, "Fast");
         slow_noise_[pmt] = compute_noise(slow_psd, "Slow");
     }
+}
+
+bool SignalSimulation::noiseEnabled(const map<string, string>& options) {
+    const auto it = options.find("pmt_noise");
+    if (it == options.end() || it->second == "True" || it->second == "true" || it->second == "1") return true;
+    if (it->second == "False" || it->second == "false" || it->second == "0") return false;
+    throw invalid_argument("pmt_noise must be True or False");
+}
+
+vector<int> SignalSimulation::noiseTemplateChannels(const map<string, string>& options, int num_pmts) {
+    vector<int> channels;
+    const auto it = options.find("pmt_noise_channels");
+    if (it == options.end() || it->second.empty()) {
+        for (int i = 1; i <= num_pmts; ++i) channels.push_back(i);
+        return channels;
+    }
+    string item;
+    stringstream list(it->second);
+    while (getline(list, item, ';')) {
+        size_t used = 0;
+        int channel = 0;
+        try { channel = stoi(item, &used); } catch (const exception&) { used = 0; }
+        if (used == 0 || used != item.size() || channel < 1)
+            throw invalid_argument("pmt_noise_channels must be ';'-separated positive integers, e.g. '1;2;3;4;1;2;3;4'");
+        channels.push_back(channel);
+    }
+    if (static_cast<int>(channels.size()) != num_pmts)
+        throw invalid_argument("pmt_noise_channels needs exactly one template channel per PMT (pmt_number)");
+    return channels;
 }
 
 vector<double> SignalSimulation::compute_noise(const vector<double>& psd, const string& digitizer) {

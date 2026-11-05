@@ -48,26 +48,29 @@ The simulation is activated and controlled via the `# PMT simulation parameters`
     * `digitizers`: Defines which signals to generate (`'Fast'`, `'Slow'`, or `'Both'`).
     * `fast_freq` / `slow_freq`: Sampling frequencies for the fast (`750e6` Hz) and slow (`250e6` Hz) channels.
 
-## CYGNO04 one-side example
+## Noise options (fork additions, defaults = upstream behaviour)
 
-`config/ConfigFile_CYGNO04_8PMT.txt` selects eight PMTs. All eight X/Y
-coordinates, the GEM-to-PMT distance and PMT radius are required placeholders:
-no verified CYGNO04 geometry is supplied here. Replace them with measurements
-in the digitization reference frame (mm). Missing, nonnumeric or nonfinite geometry
-fails before output files or noise downloads are opened. The copied electronics
-settings are LIME examples, not a CYGNO04 calibration. Supply the existing per-channel
-`CYGNO04_fast_noise_pmt_N.txt` and `CYGNO04_slow_noise_pmt_N.txt` PSD files for N=1..8
-under `pmt/`; the existing download/noise mechanism is unchanged.
+* `pmt_noise` (default `True`): add noise generated from the measured PSD templates
+  `<detector>_fast_noise_pmt_N.txt` / `<detector>_slow_noise_pmt_N.txt` (downloaded from
+  `pmt_noise_cloud_dir` if missing). `False` gives noiseless waveforms (SPE pulses and
+  12-bit quantization only) and downloads nothing.
+* `pmt_noise_channels` (optional, e.g. `'1;2;3;4;1;2;3;4'`): template channel used by PMT 1..N.
+  Only `LIME_*_noise_pmt_1..4.txt` exist on the cloud (checked 2026-11-05), so an 8-PMT run with
+  measured noise must reuse them. Every PMT still gets an independent noise realization.
 
-The LIME template and legacy four-channel waveform names are unchanged. Every
-PMT-enabled event has the declared fast/slow sample counts, including skipped or
-no-light events (zero-filled). The additional `pmt_signal_valid` vector has one
-integer per channel: 1 means photoelectrons were collected and synthesis ran;
-0 means no collected light or a skipped event. It is not a trigger or a guarantee
-that a pulse falls inside the sampling window. When synthesis runs, channels
-without collected light still receive the existing noise realization.
+## CYGNO04: one camera + 8 PMTs
+
+`config/ConfigFile_CYGNO04_8PMT.txt` is the ordinary digitizer with `pmt_number: 8`: the
+CYGNO04 Quest2 central camera and the 8 nominal PMT positions (inferred, see
+`docs/TWIN_DIGI_CHANGES.md`), LIME noise templates remapped to 8 channels. All legacy
+options (`bckg`, `Vignetting`, `redpix_output`, `digitizers`, random shifts, `fixed_seed`)
+behave as in the LIME template. Electronics/SPE settings are LIME values, not a CYGNO04
+calibration.
+
+Output: `wav_fast_pmt1..8`, `wav_slow_pmt1..8`, plus `pmt_signal_valid` (one integer per
+PMT: 1 = photoelectrons collected and synthesis ran). As on upstream main, events skipped
+or without light keep empty waveforms; only TWIN mode zero-fills them to fixed length.
 Fast and slow digitizers sample the same photoelectron transit/dispersion draw.
-ROOT branch storage remains alive until branch addresses are reset.
 
 Run focused tests with `python3 tests/run_pmt_tests.py`. ROOT and OpenCV are
 required; `--without-opencv` runs the physics/ROOT tests with only the noise IFFT

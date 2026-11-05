@@ -10,7 +10,7 @@ int main(int argc,char** argv) {
     // SYNTHETIC geometry only: not verified CYGNO04 optical/PMT measurements.
     map<string,string> options={{"twin_geometry_verified","True"},{"twin_side","L"},
         {"twin_source_id","synthetic"},{"twin_master_seed","2026"},{"variant_id","0"},
-        {"drift_length","500"},{"pmt_number","8"},{"pmt_mode","True"},{"exposure_time_effect","False"},
+        {"min_drift","0"},{"max_drift","500"},{"pmt_number","8"},{"pmt_mode","True"},{"exposure_time_effect","False"},
         {"x_dim","400"},{"y_dim","250"},{"twin_gem_xmin","-250"},{"twin_gem_xmax","250"},
         {"twin_gem_ymin","-400"},{"twin_gem_ymax","400"},{"pmt_radius","11"},{"dist_gem_pmt","190"}};
     for(int i=0;i<3;++i) {

@@ -43,7 +43,9 @@ struct TwinPlacement {
         const double v=number("variant_id");
         if(v<0 || v>3 || v!=std::floor(v)) throw std::invalid_argument("variant_id must be 0..3");
         variant=static_cast<int>(v);
-        if(number("drift_length")!=500.) throw std::invalid_argument("TWIN requires drift_length=500 mm");
+        if(options.count("drift_length")) throw std::invalid_argument("drift_length was replaced by min_drift/max_drift (mm)");
+        if(number("min_drift")!=0. || number("max_drift")!=500.)
+            throw std::invalid_argument("TWIN requires min_drift=0 and max_drift=500 mm");
         if(number("pmt_number")!=8 || text("pmt_mode")!="True") throw std::invalid_argument("TWIN requires eight enabled PMTs");
         if(text("exposure_time_effect")!="False") throw std::invalid_argument("TWIN requires exposure_time_effect=False to retain truth");
         width=number("x_dim"); height=number("y_dim");
