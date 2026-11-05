@@ -127,7 +127,7 @@ Other sources consulted:
 * [IDM2026 slides, S. Piacentini](https://indico.capa.unizar.es/event/40/contributions/862/attachments/618/1369/IDM2026_Piacentini.pdf) p.10
 * [CYGNUS-RD/WIKI-documentation CYGNO-04](https://github.com/CYGNUS-RD/WIKI-documentation/tree/main/CYGNO-04)
 
-The earlier copies of the third-party drawings are in git history (commit `89f9806`, `docs/drawings/`).
+The earlier copies of the third-party drawings are in git history (commit `c90ad06`, `docs/drawings/`).
 
 ## 7. TWIN pairing rules (summary)
 
