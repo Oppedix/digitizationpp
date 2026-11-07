@@ -62,7 +62,7 @@ The simulation is activated and controlled via the `# PMT simulation parameters`
 
 `config/ConfigFile_CYGNO04_8PMT.txt` is the ordinary digitizer with `pmt_number: 8`: the
 CYGNO04 Quest2 central camera and the 8 PMT positions from the CYGNO04 readout CAD (see
-`doc/TWIN_DIGI_CHANGES.md` §6), LIME noise templates remapped to 8 channels. All legacy
+`doc/TWIN_DIGI_CHANGES.md` §7), LIME noise templates remapped to 8 channels. All legacy
 options (`bckg`, `Vignetting`, `redpix_output`, `digitizers`, random shifts, `fixed_seed`)
 behave as in the LIME template. Electronics/SPE settings are LIME values, not a CYGNO04
 calibration.

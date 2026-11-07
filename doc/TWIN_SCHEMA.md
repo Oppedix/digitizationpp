@@ -1,10 +1,139 @@
-# TWIN ROOT observation contract, schema 1
+# Using the digitizer with PMTs and TWIN mode, and the TWIN ROOT output (schema 1)
 
-Enable `twin_cygno04_mode` with `config/ConfigFile_TWIN_CYGNO04.txt` (geometry `CYGNO04_CAD_v1`).
-This adds branches to `event_info`; no ML branches are added when disabled.
-Do not select model features by numeric dtype or by loading every ROOT branch.
-Use the explicit observable allowlist below. The complete config is audit data,
-not a vector of model features. No clustering or super-hit compression is applied.
+This page has two parts:
+
+* **Usage** (below): how to run the digitizer as upstream, with or without PMTs, with 1–8 PMTs, as CYGNO04
+  one camera + 8 PMTs, and in TWIN mode for paired ML datasets.
+* **TWIN output contract** (from [File-local MC join](#file-local-mc-join-and-visible-energy) on): every branch
+  TWIN mode writes, its type and unit, and which ones may be used as model inputs.
+
+What changed in the code, line by line, is in [TWIN_DIGI_CHANGES.md](TWIN_DIGI_CHANGES.md).
+
+## Usage
+
+### Build and run
+
+The build is the upstream one (see `README.md`):
+
+```bash
+cmake -B build-dir -S . && cmake --build build-dir
+./build-dir/digitizationpp <config file> -I <folder with MC .root files> -O <output folder>
+```
+
+Every mode below is chosen **only by the config file**. There are no extra command-line options.
+
+### Choose a mode
+
+| I want to… | Start from | Keys that matter |
+|---|---|---|
+| **A. Run the digitizer exactly as upstream** | `config/ConfigFile_new.txt` (LIME) | Nothing to change. Leave `twin_cygno04_mode` absent or `False` and leave out `pmt_noise_channels`. The output is the upstream one, plus one branch `pmt_signal_valid` |
+| **B. Camera only, no PMTs** | any config | `pmt_mode: False`. No waveforms, no `pmt_signal_valid`, no PMT noise download |
+| **C. Change the number of PMTs (1–8)** | `ConfigFile_new.txt` | `pmt_number: N` and `pmt_1_x/y … pmt_N_x/y`, `dist_gem_pmt`, `pmt_radius` |
+| **D. CYGNO04: one camera + all 8 PMTs, ordinary digitization** | `config/ConfigFile_CYGNO04_8PMT.txt` | Ready to run. CYGNO04 PMT positions from the CAD |
+| **E. TWIN paired-depth ML datasets** | `config/ConfigFile_TWIN_CYGNO04.txt` | Fill every `REQUIRED` value, then run 4 times with `variant_id` 0–3 (below) |
+
+Modes A–D are the ordinary digitizer: every upstream option keeps working, including the camera pedestal
+(`bckg`), `Vignetting`, `redpix_output`, `exposure_time_effect`, random shifts, `fixed_seed`, `digitizers`,
+and measured PMT noise. Mode E fixes some of them (see below).
+
+### PMT options in modes A–D
+
+| Key | Values | Effect |
+|---|---|---|
+| `pmt_mode` | `True` / `False` | Simulate the PMTs or not |
+| `pmt_number` | 1–8 | Writes `wav_fast_pmt1..N` and `wav_slow_pmt1..N`. Each PMT needs `pmt_N_x` and `pmt_N_y` (mm, GEM frame) |
+| `dist_gem_pmt`, `pmt_radius` | mm | PMT window height above the light-emitting GEM, and photocathode radius |
+| `digitizers` | `Fast`, `Slow`, `Both` | Which digitizer waveforms are filled |
+| `pmt_noise` | `True` (default) / `False` | `True`: noise from the measured PSD templates `<detector>_{fast,slow}_noise_pmt_N.txt` (downloaded if missing). `False`: clean waveforms, i.e. single-photoelectron pulses and 12-bit quantization only, nothing downloaded |
+| `pmt_noise_channels` | e.g. `'1;2;3;4;1;2;3;4'` | Which template each PMT uses. Needed for more than 4 PMTs, because only `LIME_*_noise_pmt_1..4.txt` exist. Each PMT still gets its own random noise |
+| `detector` | `LIME`, `GIN`, `MAN`, `CYGNO04`, `CUSTOM` | Prefix of the noise template files |
+
+Common PMT recipes:
+
+* **No PMT noise:** `pmt_noise: False`.
+* **8 PMTs with measured noise:** `detector: 'LIME'`, `pmt_noise_channels: '1;2;3;4;1;2;3;4'`.
+* **Only the fast digitizer:** `digitizers: 'Fast'`.
+* **Camera pedestal on or off:** `bckg: True` or `False`. This is independent of the PMTs. With `Camera_type: 'Quest2'`
+  the pedestal run must also be a Quest2 run; the code stops on a mismatch.
+
+**Mode D, other cameras.** `ConfigFile_CYGNO04_8PMT.txt` simulates the central camera. To simulate the upper or
+lower camera, subtract its centre (y = +266.7 or −266.7 mm) from every `pmt_N_y` and set `y_offset` to
+−266.7 or +266.7, as explained in the config header.
+
+### Mode E: TWIN paired-depth datasets
+
+TWIN places each MC track in front of one of the 3 CYGNO04 cameras and renders it at one of 4 depths.
+The same track gets the same camera and the same XY position in all 4 depth variants, so the 4 records
+differ only in depth.
+
+1. **Fill the `REQUIRED` values** in a copy of `ConfigFile_TWIN_CYGNO04.txt`:
+   * `twin_source_id`: a stable name for this sample;
+   * `twin_mc_commit`: the 40-character commit of the CYGNO-MC build that made the input;
+   * `twin_primary_pdg`: the generated primary, e.g. 11 for e⁻, 1000020040 for He;
+   * `twin_gas_pressure_mbar` and `twin_gas_temperature_k`;
+   * `twin_pmt_noise_rms_v`.
+2. **Build with CMake from a git checkout.** TWIN refuses an unversioned build, because every output stores
+   the digitizer commit.
+3. **Run the same input 4 times**, changing only `variant_id`, each into its own output folder:
+
+   ```bash
+   for v in 0 1 2 3; do
+     sed "s/^'variant_id': 0,/'variant_id': $v,/" my_twin.txt > my_twin_v$v.txt
+     ./build-dir/digitizationpp my_twin_v$v.txt -I mc_in -O out_v$v
+   done
+   ```
+
+4. **Side R:** set `twin_side: 'R'`, `MC_xaxis: '-x'`, `MC_zaxis: '-z'`, `z_offset: 501.2`.
+5. **Extra noise replicas** of the same tracks: change `twin_response_id` (or `twin_detector_seed`).
+   Camera choice and placement do not change.
+
+TWIN fixes these settings and stops at start-up if any differs:
+
+| Setting | Required value | Why |
+|---|---|---|
+| `pmt_mode`, `pmt_number` | `True`, 8 | All 8 PMTs are part of every record |
+| `digitizers` | `Both` | Fast and slow waveforms in every record |
+| `bckg` | `False` | Camera noise is TWIN's own Gaussian noise; a pedestal would add it twice |
+| `twin_noise_mode` | `synthetic` | Seeded Gaussian camera and PMT noise, no measured-PSD download |
+| `exposure_time_effect` | `False` | Rolling-shutter cuts would remove truth |
+| `min_drift`, `max_drift` | 0, 500 | Every hit must lie in the CYGNO04 drift volume |
+| `twin_geometry_verified` | `True` | Cameras, PMTs and GEM taken from the CYGNO04 CAD |
+| `twin_gas` | `HeCF4_60_40` | The only gas the drift model supports |
+
+`Parallel_threads` is ignored: TWIN runs with one thread, so a rerun is bit-identical.
+
+**How TWIN uses the 8 PMTs.** In every record:
+* the light reaches all 8 PMTs from the event's true GEM position, not from the camera's frame;
+* photoelectrons = photons × `photons_per_el` × `twin_pmt_quantum_efficiency`;
+* time zero is the first photoelectron seen on any of the 8 PMTs;
+* each channel gets seeded Gaussian noise of `twin_pmt_noise_rms_v`.
+
+Records without light still have 8 full-length noise-only waveforms. Invalid records have all-zero waveforms.
+
+### Reading TWIN output
+
+Each output file holds the tree `event_info` (one row per MC event) and the file-level objects
+`twin_configuration`, `digitizer_commit`, `root_version`, `reproducibility`, `ionization_convention`.
+Stack the PMT channels and reshape the camera like this:
+
+```python
+import ROOT, numpy as np
+f = ROOT.TFile.Open("out_v0/digi_Run00001.root"); t = f.Get("event_info")
+for e in t:
+    if not e.ml_valid: continue
+    fast = np.stack([np.asarray(getattr(e, f"wav_fast_pmt{i}")) for i in range(1, 9)])  # [8, fast_window_len]
+    slow = np.stack([np.asarray(getattr(e, f"wav_slow_pmt{i}")) for i in range(1, 9)])  # [8, slow_window_len]
+    cam = np.asarray(e.obs_camera_counts).reshape(e.obs_camera_height, e.obs_camera_width)
+```
+
+Pair the 4 variants on `ml_parent_id`. `python3 tools/inspect_twin_event.py <file> --entry 0` draws one record:
+3D truth, camera image and the 16 waveforms.
+
+---
+
+The rest of this page is the TWIN output contract. Do not select model features by numeric type or by loading
+every branch: use the explicit observable allowlist below. The configuration is audit data, not a feature
+vector. No clustering or super-hit compression is applied.
 
 ## File-local MC join and visible energy
 
@@ -22,7 +151,6 @@ samples. Duplicate IDs within either tree are fatal file errors. Missing primary
 matches become rejected records. A file without `tree1`/required branches fails
 before output creation. Only nTuple rows exist in the dataset: upstream events
 without sensitive-detector hits have no nTuple row and are not manufactured here.
-This changes Stage 2's entry-based parent IDs; regenerate all four paired runs.
 
 `tree1` holds Energy (Geant4 internal MeV), vertex (mm), signed unit direction
 (dir_x/y/z), and event number. It does **not** hold primary PDG. Declare
@@ -95,9 +223,9 @@ geometric theta/phi or first-hit differences as the generated direction.
 Pair records on `ml_parent_id`, requiring all variant IDs 0..3 and the intended
 response IDs. The position/weight arrays retain all electronic secondaries.
 Dataset splits must group by parent. Different detector seeds/response IDs do
-not alter camera choice or XY placement; those use the independent Stage 2
-placement master seed. The Z shift changes only absolute depth, not relative
-geometry. Original input coordinates/momenta remain in the Stage 2 source_* audit
+not alter camera choice or XY placement; those use the independent placement
+master seed `twin_master_seed`. The Z shift changes only absolute depth, not relative
+geometry. Original input coordinates/momenta remain in the source_* audit
 branches; generated direction comes exclusively from the file-local tree1 join.
 
 ## Observable allowlist and array construction
@@ -195,7 +323,7 @@ schema/duplicate event IDs/configuration fail the file/run, not silent coercion.
 Legacy event_info branches retain their names when TWIN is off. Existing
 TWIN-only camera_id, selected_side, parent_id, variant_id, target_depth_mm,
 actual_depth_mm, visible_ionization_weights and source_x/y/z, source_px/py/pz
-remain Stage 2 audit aliases. Legacy placement_dx/dy/dz_mm are doubles in mm.
+are audit branches. Legacy placement_dx/dy/dz_mm are doubles in mm.
 Legacy eventnumber, particle_type, nhits_og, N_photons, N_primaries_reaching_GEMs,
 nRedpix are ints; energy/cut_energy (keV), theta/phi (rad), track_length_3D,
 proj_track_2D, vertices and min/max/cut counterparts are floats with historical

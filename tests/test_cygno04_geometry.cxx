@@ -1,5 +1,5 @@
 // Checks config/ConfigFile_TWIN_CYGNO04.txt against the CYGNO04 readout CAD values
-// (tools/extract_cygno04_cad.py, doc/TWIN_DIGI_CHANGES.md §6) and for internal consistency
+// (tools/extract_cygno04_cad.py, doc/TWIN_DIGI_CHANGES.md §7) and for internal consistency
 // (FOV tiling, placement containment, light sharing).
 #include "ConfigManager.h"
 #include "TwinPlacement.h"

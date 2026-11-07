@@ -4,7 +4,7 @@
 # digitizers, PSD noise) works exactly as with the LIME template ConfigFile_new.txt.
 # TWIN placement / ML records are NOT enabled here (see ConfigFile_TWIN_CYGNO04.txt).
 #
-# Geometry 'CYGNO04_CAD_v1' (doc/TWIN_DIGI_CHANGES.md §6): Quest2 central camera
+# Geometry 'CYGNO04_CAD_v1' (doc/TWIN_DIGI_CHANGES.md §7): Quest2 central camera
 # (lens at GEM y = 0), FOV 532.48 x 299.52 mm. The PMT XY are given in the frame of the
 # SIMULATED camera (image centre = (0,0)). For the central camera this equals the GEM frame.
 # To simulate the upper/lower camera instead, subtract its centre (y = +266.7 / -266.7 mm)
@@ -124,22 +124,22 @@
 'pmt_radius' : 11., # R7378A effective photocathode radius (CAD window radius 11.5 mm)
 
 ## PMT positions
-'pmt_1_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_1_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_1_y' : 400.05, # CYGNO04 CAD
-'pmt_2_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_2_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_2_y' : 400.05, # CYGNO04 CAD
-'pmt_3_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_3_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_3_y' : 133.35, # CYGNO04 CAD
-'pmt_4_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_4_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_4_y' : 133.35, # CYGNO04 CAD
 
-'pmt_5_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_5_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_5_y' : -133.35, # CYGNO04 CAD
-'pmt_6_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_6_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_6_y' : -133.35, # CYGNO04 CAD
-'pmt_7_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_7_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_7_y' : -400.05, # CYGNO04 CAD
-'pmt_8_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_8_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_8_y' : -400.05, # CYGNO04 CAD
 
 ## PMT time response

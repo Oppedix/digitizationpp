@@ -1,7 +1,7 @@
 # CYGNO04 ONE SIDE (L) - geometry 'CYGNO04_CAD_v1'.
 # Cameras, PMTs and GEM stack from the CYGNO04 readout CAD (CAMERAS+PMT+GEM, CYGNO collaboration);
 # active GEM and drift from CYGNUS-RD/geometry cygno_04_v3; MC frame from CYGNO-MC g4v11.3_cygno04.
-# See doc/TWIN_DIGI_CHANGES.md §6 for every value and how it is extracted (tools/extract_cygno04_cad.py).
+# See doc/TWIN_DIGI_CHANGES.md §7 for every value and how it is extracted (tools/extract_cygno04_cad.py).
 # Electronics/SPE settings are inherited LIME examples and require calibration.
 {
 # Detector physics
@@ -111,22 +111,22 @@
 'pmt_radius' : 11., # R7378A effective photocathode radius (CAD window radius 11.5 mm)
 
 ## PMT positions
-'pmt_1_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_1_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_1_y' : 400.05, # CYGNO04 CAD
-'pmt_2_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_2_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_2_y' : 400.05, # CYGNO04 CAD
-'pmt_3_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_3_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_3_y' : 133.35, # CYGNO04 CAD
-'pmt_4_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_4_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_4_y' : 133.35, # CYGNO04 CAD
 
-'pmt_5_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_5_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_5_y' : -133.35, # CYGNO04 CAD
-'pmt_6_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_6_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_6_y' : -133.35, # CYGNO04 CAD
-'pmt_7_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_7_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_7_y' : -400.05, # CYGNO04 CAD
-'pmt_8_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_8_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7)
 'pmt_8_y' : -400.05, # CYGNO04 CAD
 
 ## PMT time response
@@ -147,7 +147,7 @@
 'digitizers'            : 'Both',     # Indicates which digitizers to simulate: 'Fast', 'Slow' or 'Both'
 
 
-# TWIN production gate: cameras, PMTs and GEM checked against the CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6).
+# TWIN production gate: cameras, PMTs and GEM checked against the CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §7).
 'twin_cygno04_mode': True,
 'twin_geometry_verified': True,
 'twin_side': 'L',
