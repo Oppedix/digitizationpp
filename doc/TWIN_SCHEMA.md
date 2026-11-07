@@ -1,6 +1,6 @@
 # TWIN ROOT observation contract, schema 1
 
-Enable `twin_cygno04_mode` using the completed Stage 2 geometry configuration.
+Enable `twin_cygno04_mode` with `config/ConfigFile_TWIN_CYGNO04.txt` (geometry `CYGNO04_CAD_v1`).
 This adds branches to `event_info`; no ML branches are added when disabled.
 Do not select model features by numeric dtype or by loading every ROOT branch.
 Use the explicit observable allowlist below. The complete config is audit data,
@@ -218,8 +218,8 @@ legacy paths with an explicit zero-noise IFFT stub. tests/test_twin.cxx covers
 paired geometry/depth containment and fixed PMTs. `tools/inspect_twin_event.py`
 uses PyROOT to display one event's 3D truth, camera and sixteen waveforms.
 
-Before production: complete/verify Stage 2 optical/PMT/GEM geometry and 500 mm
-interval (reference fiducial gas is only 470 mm), validate sensor calibration and
+Before production: confirm the 500 mm drift interval (reference fiducial gas is
+only 470 mm), validate sensor calibration and
 ideal-trigger assumptions, build with ROOTANA/OpenCV, run real ER/He/C/F MC files,
 inspect all energy/rejection distributions, verify four variants pair completely,
 and repeat outputs on the exact CNAF binary/dependency stack. Synthetic fixtures

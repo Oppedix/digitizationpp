@@ -13,7 +13,7 @@ Line numbers refer to this branch. They are written as `file:line` and link to t
 |---|---|---|
 | **Standard (upstream)** | `config/ConfigFile_new.txt` (LIME, 4 PMTs) | Same output as upstream `main` (§2) |
 | **CYGNO04, 1 camera + 8 PMTs** | `config/ConfigFile_CYGNO04_8PMT.txt` | Standard digitizer with `pmt_number: 8`: Quest2 central camera and 8 waveform pairs `wav_fast/slow_pmt1..8`. All legacy options still work (pedestal `bckg`, `Vignetting`, `redpix_output`, `digitizers`, random shifts, `fixed_seed`, PSD noise) |
-| **TWIN ML datasets** | `config/ConfigFile_TWIN_CYGNO04.txt` | `twin_cygno04_mode: True`: camera choice and paired depths, `ml_*`/`obs_*` truth records ([TWIN_SCHEMA.md](TWIN_SCHEMA.md)). Blocked until `twin_geometry_verified: True` |
+| **TWIN ML datasets** | `config/ConfigFile_TWIN_CYGNO04.txt` | `twin_cygno04_mode: True`: camera choice and paired depths, `ml_*`/`obs_*` truth records ([TWIN_SCHEMA.md](TWIN_SCHEMA.md)). |
 
 ## 2. Verified identical to upstream `main`
 
@@ -94,40 +94,58 @@ The three earlier drift-boundary fixes (fractional negative z, z ≥ 0 only, upp
 
 Each key is commented where it is used: [ConfigFile_new.txt:25](../config/ConfigFile_new.txt#L25), [:102](../config/ConfigFile_new.txt#L102)–104, [:135](../config/ConfigFile_new.txt#L135); [ConfigFile_CYGNO04_8PMT.txt:1](../config/ConfigFile_CYGNO04_8PMT.txt#L1)–12 (how to switch camera) and [:115](../config/ConfigFile_CYGNO04_8PMT.txt#L115)–122.
 
-## 6. CYGNO04 geometry and PMT positions (`CYGNO04_nominal_v1`)
+## 6. CYGNO04 geometry and PMT positions (`CYGNO04_CAD_v1`)
 
 ![CYGNO04 PMT positions](cygno04_pmt_positions.png)
 
 Regenerate the figure with `python3 tools/plot_cygno04_geometry.py`.
 
-| Quantity | Value | Status / source |
+Cameras, PMTs and the GEM stack come from the **CYGNO04 readout CAD** provided by the CYGNO collaboration
+(`CAMERAS+PMT+GEM`, the same assembly as `.FCStd`, `.step` and `.stl`; not stored in the repository, 18–85 MB).
+[tools/extract_cygno04_cad.py](../tools/extract_cygno04_cad.py) reads it with FreeCAD and prints every CAD value
+in the table:
+
+```
+CYGNO04_CAD=/path/to/CAMERAS+PMT+GEM.FCStd freecadcmd tools/extract_cygno04_cad.py
+```
+
+**Frames.** In the CAD part `Cygno04 - Detector`, +X is the GEM normal pointing to the optics, Y is the 50 cm
+GEM side and Z the 80 cm side. Digitizer: x = CAD Y, y = CAD Z, and z is the drift distance from the
+drift-side GEM foil (z > 0 towards the cathode).
+
+| Quantity | Value | Source |
 |---|---|---|
-| Active GEM | x ∈ ±250, y ∈ ±400 mm | CAD, `CYGNUS-RD/geometry` `cygno_04_v3` @ `dbf18a3` |
-| Drift | 500 mm (GEM at MC z = −502.2 on side L) | CAD |
-| Cameras | 3 × Quest2, lens at y = +265 / 0 / −265 mm, 698 mm from the GEM | CYGNO-MC `g4v11.3_cygno04` @ `7464329` |
-| FOV per camera | 532.48 × 299.52 mm (0.130 mm/px) | [arXiv:2510.01646](https://arxiv.org/abs/2510.01646) p.70. The reconstruction `cygno04` branch uses 0.152 mm, to be confirmed |
-| **PMTs** | **x = ±190; y = ±132.5, ±397.5 mm; window 402 mm from the GEM; r = 11 mm** | **Inferred** |
-| MC → digitizer | `x,y,z`, `z_offset 502.2` (side L, `/CYGNO/lab/select NoCave`). Side R: `-x`, `-z`, 501.2 | CAD + CYGNO-MC |
+| GEM stack | 3 foils at 2.1 mm pitch; the camera-side foil (GEM3) ends 4.3 mm from the drift-side face of GEM1 | CAD |
+| GEM foil outline | 529 × 829 mm, centred within 1.2 mm of the middle camera axis | CAD |
+| Active GEM | x ∈ ±250, y ∈ ±400 mm | `CYGNUS-RD/geometry` `cygno_04_v3` @ `dbf18a3` |
+| Drift | 500 mm (GEM1 at MC z = −502.2 on side L) | `cygno_04_v3`, CYGNO-MC `g4v11.3_cygno04` @ `7464329` |
+| Cameras | 3 × ORCA-Quest2 with EHD-25085-C lens (25 mm, f/0.85). Optical axes normal to the GEM at x = 0, **y = +266.7 / 0 / −266.7 mm**. Lens front 666.6 mm from GEM3 | CAD |
+| FOV per camera | 532.48 × 299.52 mm (0.130 mm/px), 4096-px axis along x | [arXiv:2510.01646](https://arxiv.org/abs/2510.01646) p.70, consistent with the CAD (below) |
+| **PMTs** | 8 × 1-inch tubes (body Ø 26 mm, window radius 11.5 mm). **x = ±150; y = ±133.35, ±400.05 mm; window 505.1 mm from GEM3** (`dist_gem_pmt`) | CAD |
+| `pmt_radius` | 11 mm | R7378A effective photocathode; fits inside the 11.5 mm CAD window |
+| MC → digitizer | `x,y,z`, `z_offset 502.2` (side L, `/CYGNO/lab/select NoCave`). Side R: `-x`, `-z`, 501.2 | `cygno_04_v3` + CYGNO-MC |
 
-**How the PMT positions were inferred.** No public drawing gives the PMT coordinates. The thesis says the
-8 PMTs per side sit "at the corners of each camera". The superseded `cygno_04_v2` CAD (2 cameras,
-6 PMTs per side) puts them exactly on the **shared corners of the camera tiles**: x = ±190, and y = 0 and ±380
-for tiles centred at ±190. Applying the same rule to 3 tiles centred at 0 and ±265 gives rows at ±132.5 (seams)
-and ±397.5 (outer edges): 4 rows × 2 = exactly 8. The x = ±190 and the 402 mm height are copied from v2
-and are the least certain values. Moving the PMTs mainly changes the light-sharing pattern, not the timing.
-Systematics worth trying: x = ±250, or PMTs on the camera plane (~700 mm).
-`twin_geometry_verified` stays `False` until the CYGNO hardware group confirms these values.
+**Layout.** The PMTs form two columns at x = ±150 mm. The four rows sit on the camera FOV seams
+(y = ±133.35 mm, half the 266.7 mm camera spacing) and on the outer FOV edges (y = ±400.05 mm, 1.5 × the spacing).
 
-For the 1-camera 8-PMT config, the PMT XY are given relative to the **simulated** camera centre
-(central camera → same as GEM XY). For another camera, subtract its y and set `y_offset` (see the config header).
+**FOV cross-check.** For a thin 25 mm lens with the Quest2 sensor (4096 × 4.6 µm) at the C-mount flange
+distance (17.526 mm behind the lens flange), the CAD sensor–GEM3 distance of 769.6 mm gives a demagnification of
+28.8, i.e. **0.132 mm/px**. This agrees with the 0.130 mm/px FOV within 2 %; 0.152 mm/px would need about 880 mm.
 
-Other sources consulted:
+**Sensor orientation.** The 4096-px axis must lie along x: with the sensor turned by 90°, the 299.52 mm FOV side
+could not cover the 500 mm GEM side.
+
+**Numbering.** PMT 1–8 and camera 0–2 (figure) are the digitizer's convention. The CAD carries no readout channel
+numbers, so map them to DAQ channels before comparing with data.
+
+**One-camera 8-PMT config.** PMT XY are given relative to the **simulated** camera centre (central camera →
+same as GEM XY). For another camera, subtract its y (±266.7 mm) and set `y_offset` (see the config header).
+
+Other sources:
 * [arXiv:2512.01762](https://arxiv.org/abs/2512.01762)
 * [arXiv:2603.22595](https://arxiv.org/abs/2603.22595)
 * [IDM2026 slides, S. Piacentini](https://indico.capa.unizar.es/event/40/contributions/862/attachments/618/1369/IDM2026_Piacentini.pdf) p.10
 * [CYGNUS-RD/WIKI-documentation CYGNO-04](https://github.com/CYGNUS-RD/WIKI-documentation/tree/main/CYGNO-04)
-
-The earlier copies of the third-party drawings are in git history (commit `c90ad06`, `docs/drawings/`).
 
 ## 7. TWIN pairing rules (summary)
 
@@ -151,6 +169,11 @@ The earlier copies of the third-party drawings are in git history (commit `c90ad
   * the TWIN PMT trigger is ideal (first photoelectron).
 * **Inherited from upstream:** the PMT acceptance r²h²/(4R⁴) has one extra cos θ compared with the exact
   small-disk solid angle, and photon counts are rounded per voxel.
+* **Not in the readout CAD:** the cathode and field cage. The drift length, `z_offset` and active GEM area come
+  from `cygno_04_v3` and CYGNO-MC. In the CAD, GEM1 lies 510.0 mm from the detector's central plane: if the cathode
+  is on that plane, the drift gap is 510 mm rather than 500.
+* **Lens aperture:** the CAD lens is f/0.85, while `camera_aperture` is 0.95 (LIME value). The camera light
+  factor scales as 1/aperture², so f/0.85 gives 25 % more light; the overall scale `A` still needs calibration.
 * **Pedestals with Quest2:** `bckg: True` needs Quest2 pedestal runs. The code stops on a Fusion/Quest mismatch.
 
 ## 9. Tests
@@ -159,5 +182,5 @@ The earlier copies of the third-party drawings are in git history (commit `c90ad
 python3 tests/run_pmt_tests.py [--without-opencv]   # 4 and 8 PMTs, noise switch/remap, legacy vs TWIN reset, ROOT round trip
 python3 tests/run_twin_ml_tests.py                  # actual runner in TWIN mode, 8 waveforms, reproducibility
 c++ -std=c++17 -Iinclude tests/test_twin.cxx src/PMTHits.cxx -o /tmp/t && /tmp/t
-c++ -std=c++17 -Iinclude tests/test_cygno04_geometry.cxx src/ConfigManager.cxx src/PMTHits.cxx $(root-config --cflags --libs) -o /tmp/g && /tmp/g
+c++ -std=c++17 -Iinclude tests/test_cygno04_geometry.cxx src/ConfigManager.cxx src/PMTHits.cxx $(root-config --cflags --libs) -o /tmp/g && /tmp/g   # configs match the CAD values
 ```

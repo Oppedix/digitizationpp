@@ -29,13 +29,13 @@ for (cx, cy), c, i in zip(cams, CAM, range(3)):
     top.add_patch(Rectangle((cx - W/2, cy - H/2), W, H, color=c, alpha=.08, lw=0))
     top.add_patch(Rectangle((cx - W/2, cy - H/2), W, H, fill=False, ec=c, lw=1.6))
     top.plot(cx, cy, marker="+", color=c, ms=12, mew=2)
-    top.text(cx, cy - 22, f"camera {i}: lens at y = {cy:+.0f}\nFOV {W:.0f} × {H:.0f} mm",
+    top.text(cx, cy - 22, f"camera {i}: lens axis y = {cy:+.1f}\nFOV {W:.0f} × {H:.0f} mm",
              color=INK2, fontsize=8.5, va="top", ha="center")
 top.add_patch(Rectangle((gx0, gy0), gx1 - gx0, gy1 - gy0, fill=False, ec=INK, lw=2.2))
 top.text(0, gy0 + 40, f"active GEM {gx1-gx0:.0f} × {gy1-gy0:.0f} mm", ha="center", va="bottom", color=INK, fontsize=9)
-for y in sorted({p[1] for p in pmts}):                       # PMT rows = camera-tile boundaries
+for y in sorted({p[1] for p in pmts}):                       # PMT rows = FOV seams and outer edges
     top.axhline(y, color=MUTED, lw=.8, ls=(0, (4, 3)), zorder=1)
-    top.text(274, y + 4, f"y = {y:+.1f}", va="bottom", ha="left", fontsize=8.5, color=INK2)
+    top.text(274, y + 4, f"y = {y:+.2f}", va="bottom", ha="left", fontsize=8.5, color=INK2)
 for x in sorted({p[0] for p in pmts}):
     top.axvline(x, color=MUTED, lw=.8, ls=(0, (4, 3)), zorder=1)
     top.text(x, 452, f"x = {x:+.0f}", ha="center", va="bottom", fontsize=8.5, color=INK2)
@@ -45,7 +45,7 @@ for i, (x, y) in enumerate(pmts, 1):
     top.text(x, y, str(i), color="white", ha="center", va="center", fontsize=9, weight="bold", zorder=6)
 top.set(xlim=(-290, 345), ylim=(-470, 475), aspect="equal",
         xlabel="x [mm]  (50 cm GEM side, 4096-px camera axis)", ylabel="y [mm]  (80 cm GEM side)")
-top.set_title("Top view: 8 PMTs at the camera-tile corners (inferred)", loc="left", color=INK, fontsize=11.5)
+top.set_title("Top view: 8 PMTs and 3 camera FOVs on the GEM", loc="left", color=INK, fontsize=11.5)
 for s in ("top", "right"): top.spines[s].set_visible(False)
 
 # ---- Side view along drift (z = 0 innermost GEM foil, z > 0 towards cathode; optics at z < 0)
@@ -53,23 +53,24 @@ side.add_patch(Rectangle((0, gy0), 500, gy1 - gy0, color="#eda100", alpha=.14, l
 side.text(250, 0, "drift\n0 – 500 mm", ha="center", va="center", color=INK2, fontsize=9)
 side.add_patch(Rectangle((500, gy0), 4, gy1 - gy0, color=INK2))
 side.text(502, gy1 + 12, "cathode", fontsize=8.5, color=INK2, ha="center")
-side.add_patch(Rectangle((-4.2, gy0), 4.2, gy1 - gy0, color=INK))
-side.text(-4, gy1 + 12, "GEM", ha="right", fontsize=8.5, color=INK)
+gem3 = -4.3                                                   # camera-side face of the 3-GEM stack (CAD)
+side.add_patch(Rectangle((gem3, gy0), -gem3, gy1 - gy0, color=INK))
+side.text(-4, gy1 + 12, "3 GEMs", ha="right", fontsize=8.5, color=INK)
 for y in sorted({p[1] for p in pmts}):
-    side.add_patch(Rectangle((-h - 120, y - r), 120, 2*r, color=INK))
-side.annotate("", xy=(-h, -470), xytext=(0, -470), arrowprops=dict(arrowstyle="<->", color=INK, lw=1))
-side.text(-h/2, -482, f"PMT window – GEM  {h:.0f} mm (inferred)", ha="center", va="top", fontsize=8.5, color=INK)
-lens = -697.8
+    side.add_patch(Rectangle((gem3 - h - 178.9, y - r), 178.9, 2*r, color=INK))
+side.annotate("", xy=(gem3 - h, -470), xytext=(gem3, -470), arrowprops=dict(arrowstyle="<->", color=INK, lw=1))
+side.text(gem3 - h/2, -482, f"PMT window – GEM3  {h:.1f} mm", ha="center", va="top", fontsize=8.5, color=INK)
+lens = gem3 - 666.6                                           # lens front (CAD)
 for (cx, cy), c in zip(cams, CAM):
     side.add_patch(Rectangle((lens - 84, cy - 30), 84, 60, color=c))
-    side.plot([lens, 0], [cy, cy + H/2], color=c, lw=.8); side.plot([lens, 0], [cy, cy - H/2], color=c, lw=.8)
-side.annotate("", xy=(lens, 520), xytext=(0, 520), arrowprops=dict(arrowstyle="<->", color=INK2, lw=1))
-side.text(lens/2, 532, "lens – GEM 698 mm (CYGNO-MC)", ha="center", va="bottom", fontsize=8.5, color=INK2)
-side.set(xlim=(-880, 560), ylim=(-560, 600), xlabel="z [mm]  (drift; cameras/PMTs at z < 0)", ylabel="y [mm]")
+    side.plot([lens, gem3], [cy, cy + H/2], color=c, lw=.8); side.plot([lens, gem3], [cy, cy - H/2], color=c, lw=.8)
+side.annotate("", xy=(lens, 520), xytext=(gem3, 520), arrowprops=dict(arrowstyle="<->", color=INK2, lw=1))
+side.text((lens + gem3)/2, 532, "lens front – GEM3 666.6 mm", ha="center", va="bottom", fontsize=8.5, color=INK2)
+side.set(xlim=(-900, 560), ylim=(-560, 600), xlabel="z [mm]  (drift; cameras/PMTs at z < 0)", ylabel="y [mm]")
 side.set_title("Side view (y–z)", loc="left", color=INK, fontsize=11.5)
 for s in ("top", "right"): side.spines[s].set_visible(False)
 for ax in (top, side): ax.grid(color=GRID, lw=.6); ax.set_axisbelow(True)
 
 fig.text(0.06, 0.965, f"CYGNO04 one side ({cfg['twin_side']}) — geometry {cfg['twin_geometry_id']}: "
-         "PMT XY/height inferred, cameras/GEM/drift from CAD and CYGNO-MC", fontsize=10.5, color=INK2)
+         "cameras, PMTs and GEMs from the CYGNO04 readout CAD", fontsize=10.5, color=INK2)
 fig.savefig(out, dpi=150); print("wrote", out)

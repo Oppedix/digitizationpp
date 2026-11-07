@@ -4,12 +4,12 @@
 # digitizers, PSD noise) works exactly as with the LIME template ConfigFile_new.txt.
 # TWIN placement / ML records are NOT enabled here (see ConfigFile_TWIN_CYGNO04.txt).
 #
-# Geometry 'CYGNO04_nominal_v1' (doc/TWIN_DIGI_CHANGES.md): Quest2 central camera
+# Geometry 'CYGNO04_CAD_v1' (doc/TWIN_DIGI_CHANGES.md §6): Quest2 central camera
 # (lens at GEM y = 0), FOV 532.48 x 299.52 mm. The PMT XY are given in the frame of the
 # SIMULATED camera (image centre = (0,0)). For the central camera this equals the GEM frame.
-# To simulate the upper/lower camera instead, subtract its centre (y = +265 / -265 mm)
-# from every pmt_N_y and set y_offset = -265 / +265 so the same MC hits land in that FOV.
-# PMT XY and dist_gem_pmt are INFERRED, not measured. Electronics/SPE settings are LIME values.
+# To simulate the upper/lower camera instead, subtract its centre (y = +266.7 / -266.7 mm)
+# from every pmt_N_y and set y_offset = -266.7 / +266.7 so the same MC hits land in that FOV.
+# PMT XY and dist_gem_pmt are from the CYGNO04 CAD. Electronics/SPE settings are LIME values.
 {
 # Detector physics
 ## diffusion parameters from https://arxiv.org/pdf/2007.00608.pdf
@@ -120,27 +120,27 @@
                                       # Needed because only LIME_*_noise_pmt_1..4.txt exist on the cloud (checked 2026-11-05).
                                       # Each PMT still gets an independent noise realization. Delete this line once the
                                       # CYGNO04_*_noise_pmt_1..8.txt templates exist and set 'detector' to 'CYGNO04'.
-'dist_gem_pmt' : 402., # INFERRED: PMT window-GEM distance from cygno_04_v2/pmts.stl (only CAD with PMTs)
-'pmt_radius' : 11., # R7378A effective photocathode radius, as LIME
+'dist_gem_pmt' : 505.1, # CYGNO04 CAD: PMT window to camera-side GEM foil (GEM3) [mm]
+'pmt_radius' : 11., # R7378A effective photocathode radius (CAD window radius 11.5 mm)
 
 ## PMT positions
-'pmt_1_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_1_y' : 397.5, # INFERRED nominal
-'pmt_2_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_2_y' : 397.5, # INFERRED nominal
-'pmt_3_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_3_y' : 132.5, # INFERRED nominal
-'pmt_4_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_4_y' : 132.5, # INFERRED nominal
+'pmt_1_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_1_y' : 400.05, # CYGNO04 CAD
+'pmt_2_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_2_y' : 400.05, # CYGNO04 CAD
+'pmt_3_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_3_y' : 133.35, # CYGNO04 CAD
+'pmt_4_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_4_y' : 133.35, # CYGNO04 CAD
 
-'pmt_5_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_5_y' : -132.5, # INFERRED nominal
-'pmt_6_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_6_y' : -132.5, # INFERRED nominal
-'pmt_7_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_7_y' : -397.5, # INFERRED nominal
-'pmt_8_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_8_y' : -397.5, # INFERRED nominal
+'pmt_5_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_5_y' : -133.35, # CYGNO04 CAD
+'pmt_6_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_6_y' : -133.35, # CYGNO04 CAD
+'pmt_7_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_7_y' : -400.05, # CYGNO04 CAD
+'pmt_8_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_8_y' : -400.05, # CYGNO04 CAD
 
 ## PMT time response
 'transit_time'          : 17,         # Average transit time of photoelectrons (ns)

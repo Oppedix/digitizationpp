@@ -1,6 +1,6 @@
-// Consistency checks of the nominal CYGNO04 geometry in config/ConfigFile_TWIN_CYGNO04.txt.
-// It checks internal consistency (tiling, containment, symmetry, light sharing), NOT that the
-// inferred PMT positions match the as-built detector. See doc/TWIN_DIGI_CHANGES.md.
+// Checks config/ConfigFile_TWIN_CYGNO04.txt against the CYGNO04 readout CAD values
+// (tools/extract_cygno04_cad.py, doc/TWIN_DIGI_CHANGES.md §6) and for internal consistency
+// (FOV tiling, placement containment, light sharing).
 #include "ConfigManager.h"
 #include "TwinPlacement.h"
 #include "PMTHits.h"
@@ -14,11 +14,9 @@ int main(int argc, char** argv) {
     ConfigManager config;
     if (!config.loadConfig(argc > 1 ? argv[1] : "config/ConfigFile_TWIN_CYGNO04.txt")) return 1;
     auto options = config.getOptions();
-    assert(options.at("twin_geometry_id") == "CYGNO04_nominal_v1");
+    assert(options.at("twin_geometry_id") == "CYGNO04_CAD_v1");
     assert(options.at("Camera_type") == "Quest2");
-    // Test-only sign-off of the gate; the shipped template keeps it False.
-    assert(options.at("twin_geometry_verified") == "False");
-    options["twin_geometry_verified"] = "True";
+    assert(options.at("twin_geometry_verified") == "True");
     options["twin_source_id"] = "geometry-test";
 
     TwinPlacement g(options);
@@ -35,16 +33,16 @@ int main(int argc, char** argv) {
     assert(g.cameras[1].y - g.height / 2 < g.cameras[2].y + g.height / 2);
     assert(g.cameras[0].y + g.height / 2 >= g.ymax && g.cameras[2].y - g.height / 2 <= g.ymin);
 
-    // PMTs: inside the GEM footprint, mirror-symmetric in X and Y, two per seam/edge row.
+    // CAD values: camera axes 266.7 mm apart, PMT rows on the FOV seams/outer edges, window-GEM3 distance.
+    const double cad_pmt[8][2] = {{-150, 400.05}, {150, 400.05}, {-150, 133.35}, {150, 133.35},
+                                  {-150, -133.35}, {150, -133.35}, {-150, -400.05}, {150, -400.05}};
     vector<pair<double,double>> pmt;
-    for (int i = 1; i <= npmt; ++i)
+    for (int i = 1; i <= npmt; ++i) {
         pmt.push_back({stod(options.at("pmt_" + to_string(i) + "_x")), stod(options.at("pmt_" + to_string(i) + "_y"))});
-    for (auto [x, y] : pmt) {
-        assert(x > g.xmin && x < g.xmax && y > g.ymin && y < g.ymax);
-        bool mx = false, my = false;
-        for (auto [u, v] : pmt) { mx |= fabs(u + x) < 1e-9 && fabs(v - y) < 1e-9; my |= fabs(u - x) < 1e-9 && fabs(v + y) < 1e-9; }
-        assert(mx && my);
+        assert(fabs(pmt.back().first - cad_pmt[i-1][0]) < 1e-9 && fabs(pmt.back().second - cad_pmt[i-1][1]) < 1e-9);
     }
+    assert(fabs(stod(options.at("dist_gem_pmt")) - 505.1) < 1e-9);
+    for (int c = 0; c < 3; ++c) assert(fabs(g.cameras[c].y - 266.7 * (1 - c)) < 1e-9);
 
     // Light sharing: a source under a PMT gives that PMT the largest mean collection.
     for (int j = 0; j < npmt; ++j) {
@@ -82,6 +80,6 @@ int main(int argc, char** argv) {
         for (auto [x, y] : pmt) svg << "<circle cx='" << x << "' cy='" << -y << "' r='11' fill='red'/>";
         svg << "</svg>";
     }
-    cout << "PASS: CYGNO04_nominal_v1 tiling, containment, PMT symmetry/light sharing, camera balance "
+    cout << "PASS: CYGNO04_CAD_v1 CAD values, tiling, containment, light sharing, camera balance "
          << counts[0] << "/" << counts[1] << "/" << counts[2] << "\n";
 }

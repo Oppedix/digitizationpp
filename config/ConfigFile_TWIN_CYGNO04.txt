@@ -1,8 +1,7 @@
-# CYGNO04 ONE SIDE (L) - nominal geometry 'CYGNO04_nominal_v1'.
-# Values are taken from CAD (CYGNUS-RD/geometry cygno_04_v3 + cygno_04_v2), CYGNO-MC
-# g4v11.3_cygno04 and published CYGNO04 descriptions; PMT XY/height are INFERRED.
-# See doc/TWIN_DIGI_CHANGES.md for every source and derivation. The production gate
-# twin_geometry_verified stays False until the CYGNO hardware group confirms them.
+# CYGNO04 ONE SIDE (L) - geometry 'CYGNO04_CAD_v1'.
+# Cameras, PMTs and GEM stack from the CYGNO04 readout CAD (CAMERAS+PMT+GEM, CYGNO collaboration);
+# active GEM and drift from CYGNUS-RD/geometry cygno_04_v3; MC frame from CYGNO-MC g4v11.3_cygno04.
+# See doc/TWIN_DIGI_CHANGES.md §6 for every value and how it is extracted (tools/extract_cygno04_cad.py).
 # Electronics/SPE settings are inherited LIME examples and require calibration.
 {
 # Detector physics
@@ -108,27 +107,27 @@
 'pmt_number'            : 8,          # Number of PMTs (1-8); TWIN requires 8
 'pmt_noise'             : True,       # PSD noise on/off. Not used while twin_noise_mode='synthetic' (own Gaussian noise)
 # 'pmt_noise_channels'  : '1;2;3;4;1;2;3;4', # Only for measured PSD noise: template channel per PMT (see ConfigFile_CYGNO04_8PMT.txt)
-'dist_gem_pmt' : 402., # INFERRED: PMT window-GEM distance from cygno_04_v2/pmts.stl (only CAD with PMTs)
-'pmt_radius' : 11., # R7378A effective photocathode radius, as LIME
+'dist_gem_pmt' : 505.1, # CYGNO04 CAD: PMT window to camera-side GEM foil (GEM3) [mm]
+'pmt_radius' : 11., # R7378A effective photocathode radius (CAD window radius 11.5 mm)
 
 ## PMT positions
-'pmt_1_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_1_y' : 397.5, # INFERRED nominal
-'pmt_2_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_2_y' : 397.5, # INFERRED nominal
-'pmt_3_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_3_y' : 132.5, # INFERRED nominal
-'pmt_4_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_4_y' : 132.5, # INFERRED nominal
+'pmt_1_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_1_y' : 400.05, # CYGNO04 CAD
+'pmt_2_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_2_y' : 400.05, # CYGNO04 CAD
+'pmt_3_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_3_y' : 133.35, # CYGNO04 CAD
+'pmt_4_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_4_y' : 133.35, # CYGNO04 CAD
 
-'pmt_5_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_5_y' : -132.5, # INFERRED nominal
-'pmt_6_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_6_y' : -132.5, # INFERRED nominal
-'pmt_7_x' : -190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_7_y' : -397.5, # INFERRED nominal
-'pmt_8_x' : 190.0, # INFERRED nominal: shared camera-tile corner (doc/TWIN_DIGI_CHANGES.md)
-'pmt_8_y' : -397.5, # INFERRED nominal
+'pmt_5_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_5_y' : -133.35, # CYGNO04 CAD
+'pmt_6_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_6_y' : -133.35, # CYGNO04 CAD
+'pmt_7_x' : -150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_7_y' : -400.05, # CYGNO04 CAD
+'pmt_8_x' : 150.0, # CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6)
+'pmt_8_y' : -400.05, # CYGNO04 CAD
 
 ## PMT time response
 'transit_time'          : 17,         # Average transit time of photoelectrons (ns)
@@ -148,9 +147,9 @@
 'digitizers'            : 'Both',     # Indicates which digitizers to simulate: 'Fast', 'Slow' or 'Both'
 
 
-# TWIN production gate: verify footprint, frame mapping, GEM and Stage 1 PMTs first.
+# TWIN production gate: cameras, PMTs and GEM checked against the CYGNO04 CAD (doc/TWIN_DIGI_CHANGES.md §6).
 'twin_cygno04_mode': True,
-'twin_geometry_verified': False,
+'twin_geometry_verified': True,
 'twin_side': 'L',
 'twin_source_id': 'REQUIRED', # Stable dataset namespace; unique filenames within it.
 'twin_master_seed': 2026,
@@ -159,16 +158,16 @@
 'twin_gem_xmax' : 250., # 
 'twin_gem_ymin' : -400., # Active GEM / field cage interior 800 mm
 'twin_gem_ymax' : 400., # 
-# Lens centres from CYGNO-MC g4v11.3_cygno04 (0,+265/0/-265, z=-1200 mm) = optical axes assumed normal to GEM.
-'twin_geometry_id': 'CYGNO04_nominal_v1',
+# Lens optical axes from the CYGNO04 CAD: normal to the GEM, 266.7 mm apart along the 80 cm side.
+'twin_geometry_id': 'CYGNO04_CAD_v1',
 'twin_camera_0_x': 0.,
-'twin_camera_0_y': 265.,
+'twin_camera_0_y': 266.7,
 'twin_camera_0_angle_rad' : 0., # Sensor 4096-px axis along GEM X (landscape windows in CAD end plate)
 'twin_camera_1_x': 0.,
 'twin_camera_1_y': 0.,
 'twin_camera_1_angle_rad' : 0., # Sensor 4096-px axis along GEM X (landscape windows in CAD end plate)
 'twin_camera_2_x': 0.,
-'twin_camera_2_y': -265.,
+'twin_camera_2_y': -266.7,
 'twin_camera_2_angle_rad' : 0., # Sensor 4096-px axis along GEM X (landscape windows in CAD end plate)
 # Example design strata in mm, not detector measurements; equal min/max fixes a target.
 'twin_depth_0_min': 50.,
