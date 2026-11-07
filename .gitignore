@@ -44,4 +44,4 @@ doc/latex
 .ipynb_checkpoints
 .vscode
 build
-input/old
+input/old__pycache__/
