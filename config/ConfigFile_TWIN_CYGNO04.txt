@@ -57,7 +57,7 @@
 
 # Camera parameters
 'Camera_type' : 'Quest2', # CYGNO04: Hamamatsu ORCA-Quest2 qCMOS, 4096x2304
-'camera_aperture'       : 0.95,
+'camera_aperture'       : 0.95,      # LIME lens f-number (f/0.95), kept on purpose; the CYGNO04 CAD lens EHD-25085-C is f/0.85
 'exposure_time_effect'  : False,      # if True simulates the effect of tracks cut by the sensor being not fully exposed
 'exposure_time'         : 300,       # exposure time in milliseconds
 
