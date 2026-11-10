@@ -66,6 +66,11 @@ TWIN places each MC track in front of one of the 3 CYGNO04 cameras and renders i
 The same track gets the same camera and the same XY position in all 4 depth variants, so the 4 records
 differ only in depth.
 
+**Before the first run, add the vignetting map.** `ConfigFile_TWIN_CYGNO04.txt` has `Vignetting: True` with
+`Vig_Map: vignette_ORCA_calibrated.root` (Davide–Melba map). The file is **not in this repository**: it is kept
+on the CNAF cluster and must be copied by hand into `VignettingMap/` of the checkout that runs the digitizer.
+Without it the run stops at once with `Vignetting map not found`.
+
 1. **Fill the `REQUIRED` values** in a copy of `ConfigFile_TWIN_CYGNO04.txt`:
    * `twin_source_id`: a stable name for this sample;
    * `twin_mc_commit`: the 40-character commit of the CYGNO-MC build that made the input;

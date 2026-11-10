@@ -289,7 +289,7 @@ void DigitizationRunner::fillVigmap(TH2F& VignMap) {
     string vignfilename = Form("%sVignettingMap/%s", SOURCE_DIR.c_str(), config.get("Vig_Map").c_str());
     cout<<"Opening "<<vignfilename<<"..."<<endl;
     auto VignFile = unique_ptr<TFile> {TFile::Open(vignfilename.c_str())};
-        
+    if(!VignFile || VignFile->IsZombie()) throw runtime_error("Vignetting map not found: "+vignfilename+". Copy the map into VignettingMap/ (maps are not all in the repository) or set 'Vignetting': False");
     VignMap = (*(TH2F*)VignFile->Get("normmap"));
         
     VignMap.Smooth();

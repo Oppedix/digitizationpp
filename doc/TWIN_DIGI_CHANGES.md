@@ -95,6 +95,7 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 | Code | What changed | How |
 |---|---|---|
 | [DigitizationRunner.cxx:870](../src/DigitizationRunner.cxx#L870) | `particle_type` of an event without hits | Written as 0. Upstream read the first element of an empty list (undefined behaviour) |
+| [DigitizationRunner.cxx:292](../src/DigitizationRunner.cxx#L292) | Missing vignetting map | The run stops with `Vignetting map not found` and the path. Upstream used the unopened file (crash) |
 | [DigitizationRunner.cxx:237](../src/DigitizationRunner.cxx#L237) | Text settings in `param_dir` | Text-valued keys (`pmt_noise_channels`, `twin_*` names) are skipped when the config is saved as numbers |
 
 ### 4.5 TWIN mode (`twin_cygno04_mode: True` only)
@@ -242,8 +243,9 @@ Other sources:
 * **Camera storage:** TWIN `obs_camera_counts` stores the full 4096 × 2304 noisy image, about 75 MB per event.
   It must be made sparse before production.
 * **Calibration gaps:**
-  * the TWIN config names the Davide–Melba map `vignette_ORCA_calibrated.root`, which is **not in the repository**
-    (copy it into `VignettingMap/`); it has not been run here, and the tests switch vignetting off;
+  * the TWIN config names the Davide–Melba map `vignette_ORCA_calibrated.root`, which is **not in the repository**:
+    it is kept on the CNAF cluster and must be copied by hand into `VignettingMap/` before running. It has not
+    been run here, and the tests switch vignetting off;
   * gas, diffusion, gain and saturation in the TWIN config are the Davide–Melba working values (TWIN v2 plan §3),
     not a final calibration;
   * the PMT electronics/SPE constants and noise templates are LIME values;

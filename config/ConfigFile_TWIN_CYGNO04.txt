@@ -80,7 +80,7 @@
 'start_event'		: 0,         # index of the first event to digitize
 
 # Vignetting
-'Vignetting' : True, # Davide-Melba map. NOT in this repository: copy it into VignettingMap/ before running
+'Vignetting' : True, # Davide-Melba map. NOT in this repository: it is kept on CNAF. Copy it by hand into VignettingMap/ before running
 'Vig_Map'		: 'vignette_ORCA_calibrated.root',
 
 # Operative parameters
