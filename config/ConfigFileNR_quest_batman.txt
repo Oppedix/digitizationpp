@@ -1,0 +1,118 @@
+{
+# Detector physics
+## diffusion parameters from https://arxiv.org/pdf/2007.00608.pdf
+## for other drift fields, use: https://github.com/pietro14/digitization/blob/h5/garfield_data/compute_value_from_csv.py
+'diff_const_sigma0T'    : 0.13475,     # diffusion constant [mm]^2
+'diff_coeff_T'          : 0.0143819,   # diffusion parameter [mm/sqrt(cm)]^2 for 0.8 kV/cm
+#'diff_coeff_T'          : 0.0198721,   # diffusion parameter [mm/sqrt(cm)]^2 for 0.5 kV/cm (RUN 5)
+'diff_const_sigma0L'    : 0.0676,     # diffusion constant [mm]^2
+'diff_coeff_L'          : 0.0103483,    # diffusion parameter [mm/sqrt(cm)]^2 for 0.8 kV/cm
+#'diff_coeff_L'          : 0.0152483,   # diffusion parameter [mm/sqrt(cm)]^2 for 0.5 kV/cm (RUN 5)
+'ion_pot'               : 0.0350,    # ionization potential for He/CF4 60/40 [keV]
+'photons_per_el'        : 0.07,      # number of photons per electron produced in the avalanche
+'absorption_l'          : 1350.,     # absorption length in [mm]
+'drift_field'           : 0.8,         # drift field [kV/cm]
+
+# Detector parameters
+'GEM1_HV'               : 440.,      # HV of GEM1
+'GEM2_HV'               : 440.,      # HV of GEM2
+'GEM3_HV'               : 440.,      # HV of GEM3
+
+'x_dim'			: 615.1,       # first dimension of the detector
+'y_dim'			: 346,       # second dimension of the detector
+
+# Geometry
+'MC_xaxis'              : '-z',      # Digitization axis corrisponding to input x - axis (See README to check digitization ref. frame)
+'MC_yaxis'              : '-y',      # Digitization axis corrisponding to input y - axis (See README to check digitization ref. frame)
+'MC_zaxis'              : '-x',      # Digitization axis corrisponding to input z - axis (See README to check digitization ref. frame)
+
+'x_offset'              : 0.,        # Position [mm] of the origin of the input MC ref. frame in the digitization ref. frame along the x axis (of digitization ref. frame)
+'y_offset'              : 0.,        # Position [mm] of the origin of the input MC ref. frame in the digitization ref. frame along the y axis (of digitization ref. frame)
+'z_offset'              : 265.,      # Position [mm] of the origin of the input MC ref. frame in the digitization ref. frame along the z axis (of digitization ref. frame)
+
+'x_extra'               : 0.,        # Extra distance in x (of digitization ref. frame) from center of the image [mm]
+'y_extra'               : 0.,        # Extra distance in y (of digitization ref. frame) from center of the image [mm]
+'z_extra'               : 0.,        # Extra distance from GEM in z coordinate [mm] (drift distance will be (position in simulation along drift)+(z_offset)+(z_extra) )
+'randZ_range'           : 0.,        # Track z coordinate range [mm]. Tracks will be generated uniformly between 'z_hit+randZ_range/2' and 'z_hit-randZ_range/2'
+
+# Camera parameters
+'Camera_type'		: 'Quest2',   # Possibilities: Fusion, Quest1, Quest2
+'camera_aperture'       : 0.85,
+'exposure_time_effect'  : False,      # if True simulates the effect of tracks cut by the sensor being not fully exposed
+'exposure_time'         : 300,       # exposure time in milliseconds
+
+# Saturation parameters from https://github.com/CYGNUS-RD/digitizationpp/tree/49b7014
+'xy_vox_scale'          : 1, # pixel size / xy voxel dimension (MUST be integer AND >= 1)
+'z_vox_dim'             : 0.1,       # z voxel size in [mm]
+'A'                     : 1,        # free parameter (total scale factor MC/data)
+'beta'                  : 0.8e-5,    # saturation parameter
+'zcloud'		: 20,        # z dimension of the electron cloud in [mm]
+'c_G'                   : 0.03,      # normalization factor for the Gain saturation model
+'alpha_G'               : 0.0209,    # exponential factor or the Gain saturation model
+
+# Background
+'bckg'                  : False,      # if 'True' background is added
+'tag'			: 'Data',    # Set 'Data' to download a real pedestal run 
+'noiserun'              : '94900;94564;94130',      # pedestal runs to add as background separated by ';'
+'ped_cloud_dir'         : 'LNGS',    # directory inside the cloud bucket where the pedestal run is located
+'bckg_path'		: './tmp/', # set path to pedestal run, or leave it black if you want to download it
+'bckg_name'     	: 'mypeds.root', # set name of the .root file containing the pedestals
+'random_ped'            : -1, # if -1 then the pedestal is randomly extracted from the 'bckg_name' file, else put here which fixed event of the 'bckg_name' file you want to use
+'start_event'		: 0,         # index of the first event to digitize
+
+# Vignetting
+'Vignetting'		: True,      #Add vignetting effect according to the MAP
+'Vig_Map'		: 'vignette_QEHD_085.root',
+
+# Operative parameters
+'start_run_number'      : 0,	    # first number for outputfile: histograms_Run<start_run_number%5d>.root
+'NR'                    : True,     # 'True' for NR and ER digitization, 'False' for only ER
+'GEANT4isotopes'        : False,      # specify if you are digitizing tracks from radioactive isotope GEANT4 simulations
+'rootfiles'             : True,      # choose input type: True for G4 root iput, False for segmentation violation (at the moment)
+'events'                : -1,         # number of events to be processed, -1 = max allowed
+'donotremove'           : True,      # Remove or not the file from the tmp folder
+'fixed_seed'            : False,     # If 'True' the seed of random distributions is set to 10 (for debugging purposes)
+'WID'                   : 5,         # Integer parameter: the smaller WID is, the smaller the ram usage but the higher the time consumption
+'Parallel_threads'      : 8,         # Integer parameter: number of threads to use in parallel calculation
+'queue'                 : 0,	     # If you are sending to the CNAF queue write 1. The outputfiles will be forced to be written in local folder to be sent to cloud
+'redpix_output'         : True,      # True if you want the output format being only the redpixes instead of images and redpixes. NOTE: this will change the output namefile to "digi_RunXXXXX.root"
+'save_expected_lambda'  : True,      # BATMAN expected-signal export
+'save_mc_first3_hits'   : True,       #If True saves the position of the first 3 GEANT hits
+
+## PMT side
+# PMT simulation parameters
+'pmt_mode'              : False,       # 'True' for PMT simulation
+'pmt_noise_cloud_dir'       : 'cygno-sim/Useful_for_digi/PMTnoise_template',    # directory inside the cloud bucket where the noise files are located
+'detector'              : 'LIME',      # This will allow to select the noise files (LIME, GIN, MAN, CYGNO04, CUSTOM)
+'pmt_number'            : 4,          # Number of PMTs
+'dist_gem_pmt'          : 190,        # Z distance from GEM plane (GEM is at z = 0)
+'pmt_radius'            : 11,         # Radius of PMT R7378A
+
+## PMT positions
+'pmt_1_x'               : -142.0,     # X position of PMT 1 (Top-Left)
+'pmt_1_y'               : -142.0,     # Y position of PMT 1
+'pmt_2_x'               : 142.0,      # X position of PMT 2 (Top-Right)
+'pmt_2_y'               : -142.0,     # Y position of PMT 2
+'pmt_3_x'               : 142.0,      # X position of PMT 3 (Bottom-Right)
+'pmt_3_y'               : 142.0,      # Y position of PMT 3
+'pmt_4_x'               : -142.0,     # X position of PMT 4 (Bottom-Left)
+'pmt_4_y'               : 142.0,      # Y position of PMT 4
+
+## PMT time response
+'transit_time'          : 17,         # Average transit time of photoelectrons (ns)
+'transit_time_spread'   : 0.9,        # Spread (standard deviation) of transit time (ns)
+'exp_dispersion_scale'  : 0.079e9,    # Scale parameter (lambda) for exponential dispersion (Hz)
+
+## PMT signal parameters
+'pmt_gain'              : 0.398e6,    # Gain of the PMT (amplification factor)
+'pmt_sigma'             : 0.516e-9,   # Standard deviation of Gaussian component (seconds)
+'pmt_lambda'            : 0.658e9,    # Rate (lambda) of exponential tail in signal (Hz)
+
+## Digitizers setup
+'fast_window_len'       : 1024,       # Number of samples in fast digitizer window
+'slow_window_len'       : 4000,       # Number of samples in slow digitizer window
+'fast_freq'             : 750e6,      # Sampling frequency of fast digitizer (Hz)
+'slow_freq'             : 250e6,      # Sampling frequency of slow digitizer (Hz)
+'digitizers'            : 'Both',     # Indicates which digitizers to simulate: 'Fast', 'Slow' or 'Both'
+
+}

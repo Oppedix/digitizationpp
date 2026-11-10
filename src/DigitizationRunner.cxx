@@ -694,6 +694,12 @@ void DigitizationRunner::processRootFiles() {
             std::unique_ptr<std::vector<uint16_t>> redpix_ix = std::make_unique<std::vector<uint16_t>>();
             std::unique_ptr<std::vector<uint16_t>> redpix_iy = std::make_unique<std::vector<uint16_t>>();
             std::unique_ptr<std::vector<uint16_t>> redpix_iz = std::make_unique<std::vector<uint16_t>>();
+
+            //BATMAN: Expected detected signal before final Poisson Sampling
+            const bool save_expected_lambda = config.getBool("save_expected_lambda");     
+            std::vector<uint16_t> expected_ix;
+            std::vector<uint16_t> expected_iy;
+            std::vector<double> expected_lambda_e;
             
             TwinML::Record ml; // Storage precedes the TTree and survives every Fill.
             int camera_id=-1, variant_id=twin_mode ? twin->variant : -1;
@@ -774,6 +780,20 @@ void DigitizationRunner::processRootFiles() {
             outtree->Branch("redpix_ix", redpix_ix.get());
             outtree->Branch("redpix_iy", redpix_iy.get());
             outtree->Branch("redpix_iz", redpix_iz.get());
+         
+            // BATMAN: optional sparse expected-signal truth.
+            if (save_expected_lambda) {            
+                outtree->Branch("expected_ix", &expected_ix);        
+                outtree->Branch("expected_iy", &expected_iy);         
+                outtree->Branch(
+                    "expected_lambda_e",
+                    &expected_lambda_e
+                );
+            }
+
+
+         
+         
             if (config.getBool("pmt_mode")) {
                 for (int i = 0; i < pmt_count; ++i) {
                     outtree->Branch(("wav_fast_pmt" + to_string(i + 1)).c_str(), &wav_fast[i]);
@@ -797,6 +817,9 @@ void DigitizationRunner::processRootFiles() {
                 redpix_ix->clear();
                 redpix_iy->clear();
                 redpix_iz->clear();
+                expected_ix.clear();
+                expected_iy.clear();
+                expected_lambda_e.clear();
                 
                 if (config.getBool("pmt_mode")) {
                     // Legacy: skipped/no-light events keep empty waveforms, as on main.
@@ -1150,7 +1173,10 @@ void DigitizationRunner::processRootFiles() {
                                                         energy,
                                                         NR_flag,
                                                         array2d_Nph,
-                                                        pmt_voxels
+                                                        pmt_voxels,
+                                                        expected_ix,
+                                                        expected_iy,
+                                                        expected_lambda_e
                                                         )) {
                     std::cerr<<"Warning: DigitizationRunner::processRootFiles: skipping this track because of error from TrackProcessor::computeWithSaturation."<<std::endl;
 
