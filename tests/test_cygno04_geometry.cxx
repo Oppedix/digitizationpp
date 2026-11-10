@@ -23,9 +23,9 @@ int main(int argc, char** argv) {
     const int npmt = PhotonPropagation::validateGeometry(options);
     assert(npmt == 8);
 
-    // Quest2 aspect ratio (checkDimensionConsistency) and the 0.130 mm effective pixel.
+    // Quest2 aspect ratio (checkDimensionConsistency) and the 0.1247 mm effective pixel (FoV scan report).
     assert(fabs(g.width / g.height - 4096. / 2304.) < 1e-9);
-    assert(fabs(g.width / 4096. - 0.130) < 1e-9);
+    assert(fabs(g.width / 4096. - 0.1247) < 1e-9);
 
     // Three FOVs cover the whole 500 x 800 mm GEM, with overlap at both seams.
     for (const auto& c : g.cameras) assert(g.width >= g.xmax - g.xmin && fabs(c.x) < 1e-9 && c.angle == 0.);

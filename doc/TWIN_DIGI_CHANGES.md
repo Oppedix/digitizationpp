@@ -163,6 +163,7 @@ Types, units and which branches may be model inputs: [TWIN_SCHEMA.md](TWIN_SCHEM
 | `pmt_number` | 4 | Now 1–8 |
 | `pmt_noise` | `True` | `False` gives noiseless PMT waveforms |
 | `pmt_noise_channels` | identity | `';'`-separated PSD template channel per PMT |
+| `drift_velocity` | absent: built-in table at `drift_field` | Drift velocity in cm/µs used for the PMT arrival times ([Utils.cxx:118](../src/Utils.cxx#L118), [DigitizationRunner.cxx:1196](../src/DigitizationRunner.cxx#L1196)). Must be a positive number; checked at start-up. The table gives 5.91 at 0.95 kV/cm, the TWIN config sets 6.25305 |
 | `twin_cygno04_mode` | `False` | Enables TWIN. All `twin_*` keys, `variant_id` and the `REQUIRED` per-run inputs are documented inline in `ConfigFile_TWIN_CYGNO04.txt` |
 
 Each key is commented where it is used: [ConfigFile_new.txt:25](../config/ConfigFile_new.txt#L25), [:102](../config/ConfigFile_new.txt#L102)–104, [:135](../config/ConfigFile_new.txt#L135); [ConfigFile_CYGNO04_8PMT.txt:1](../config/ConfigFile_CYGNO04_8PMT.txt#L1)–12 (how to switch camera) and [:115](../config/ConfigFile_CYGNO04_8PMT.txt#L115)–122.
@@ -193,7 +194,8 @@ drift-side GEM foil (z > 0 towards the cathode).
 | Active GEM | x ∈ ±250, y ∈ ±400 mm | `CYGNUS-RD/geometry` `cygno_04_v3` @ `dbf18a3` |
 | Drift | 500 mm (GEM1 at MC z = −502.2 on side L) | `cygno_04_v3`, CYGNO-MC `g4v11.3_cygno04` @ `7464329` |
 | Cameras | 3 × ORCA-Quest2 with EHD-25085-C lens (25 mm, f/0.85). Optical axes normal to the GEM at x = 0, **y = +266.7 / 0 / −266.7 mm**. Lens front 666.6 mm from GEM3 | CAD |
-| FOV per camera | 532.48 × 299.52 mm (0.130 mm/px), 4096-px axis along x | [arXiv:2510.01646](https://arxiv.org/abs/2510.01646) p.70, consistent with the CAD (below) |
+| FOV per camera, TWIN config | 510.77 × 287.31 mm (0.1247 mm/px, measured full-field average), 4096-px axis along x | [FoV scan report](https://fiorotto8.github.io/FoV_Scan/report.html), 655 mm foil–lens distance (TWIN v2 plan §3) |
+| FOV per camera, one-camera 8-PMT config | 532.48 × 299.52 mm (0.130 mm/px), unchanged | [arXiv:2510.01646](https://arxiv.org/abs/2510.01646) p.70 |
 | **PMTs** | 8 × 1-inch tubes (body Ø 26 mm, window radius 11.5 mm). **x = ±150; y = ±133.35, ±400.05 mm; window 505.1 mm from GEM3** (`dist_gem_pmt`) | CAD |
 | `pmt_radius` | 11 mm | R7378A effective photocathode; fits inside the 11.5 mm CAD window |
 | MC → digitizer | `x,y,z`, `z_offset 502.2` (side L, `/CYGNO/lab/select NoCave`). Side R: `-x`, `-z`, 501.2 | `cygno_04_v3` + CYGNO-MC |
@@ -204,8 +206,11 @@ drift-side GEM foil (z > 0 towards the cathode).
 **FOV cross-check.** For a thin 25 mm lens with the Quest2 sensor (4096 × 4.6 µm) at the C-mount flange
 distance (17.526 mm behind the lens flange), the CAD sensor–GEM3 distance of 769.6 mm gives a demagnification of
 28.8, i.e. **0.132 mm/px**. This agrees with the 0.130 mm/px FOV within 2 %; 0.152 mm/px would need about 880 mm.
+The measured 0.1247 mm/px used by the TWIN config is 6 % below this thin-lens estimate, and the report's 655 mm
+foil–lens distance is 11.6 mm shorter than the CAD lens-front distance (666.6 mm). Not reconciled here; the
+measurement is used.
 
-**Sensor orientation.** The 4096-px axis must lie along x: with the sensor turned by 90°, the 299.52 mm FOV side
+**Sensor orientation.** The 4096-px axis must lie along x: with the sensor turned by 90°, the 287 mm FOV side
 could not cover the 500 mm GEM side.
 
 **Numbering.** PMT 1–8 and camera 0–2 (figure) are the digitizer's convention. The CAD carries no readout channel
@@ -237,7 +242,10 @@ Other sources:
 * **Camera storage:** TWIN `obs_camera_counts` stores the full 4096 × 2304 noisy image, about 75 MB per event.
   It must be made sparse before production.
 * **Calibration gaps:**
-  * there is no Quest2 vignetting map;
+  * the TWIN config names the Davide–Melba map `vignette_ORCA_calibrated.root`, which is **not in the repository**
+    (copy it into `VignettingMap/`); it has not been run here, and the tests switch vignetting off;
+  * gas, diffusion, gain and saturation in the TWIN config are the Davide–Melba working values (TWIN v2 plan §3),
+    not a final calibration;
   * the PMT electronics/SPE constants and noise templates are LIME values;
   * the TWIN PMT trigger is ideal (first photoelectron).
 * **Inherited from upstream:** the PMT acceptance r²h²/(4R⁴) has one extra cos θ compared with the exact
@@ -245,8 +253,9 @@ Other sources:
 * **Not in the readout CAD:** the cathode and field cage. The drift length, `z_offset` and active GEM area come
   from `cygno_04_v3` and CYGNO-MC. In the CAD, GEM1 lies 510.0 mm from the detector's central plane: if the cathode
   is on that plane, the drift gap is 510 mm rather than 500.
-* **Lens aperture:** the CAD lens is f/0.85, while `camera_aperture` is 0.95 (LIME value). The camera light
-  factor scales as 1/aperture², so f/0.85 gives 25 % more light; the overall scale `A` still needs calibration.
+* **Lens aperture:** the TWIN config uses the CAD lens value f/0.85; the one-camera 8-PMT config keeps 0.95
+  (LIME value). The camera light factor scales as 1/aperture², so f/0.85 gives 25 % more light; the overall
+  scale `A` still needs calibration.
 * **Pedestals with Quest2:** `bckg: True` needs Quest2 pedestal runs. The code stops on a Fusion/Quest mismatch.
 
 ## 10. Tests

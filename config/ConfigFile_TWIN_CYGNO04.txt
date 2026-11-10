@@ -2,29 +2,28 @@
 # Cameras, PMTs and GEM stack from the CYGNO04 readout CAD (CAMERAS+PMT+GEM, CYGNO collaboration);
 # active GEM and drift from CYGNUS-RD/geometry cygno_04_v3; MC frame from CYGNO-MC g4v11.3_cygno04.
 # See doc/TWIN_DIGI_CHANGES.md §7 for every value and how it is extracted (tools/extract_cygno04_cad.py).
+# Gas, diffusion, gain, saturation and optics: Davide-Melba CYGNO04 working configuration (2026-11-09)
+# and the FoV scan report, as frozen in the TWIN v2 plan, section 3. Best current values, not a final calibration.
 # Electronics/SPE settings are inherited LIME examples and require calibration.
 {
-# Detector physics
-## diffusion parameters from https://arxiv.org/pdf/2007.00608.pdf
-## for other drift fields, use: https://github.com/pietro14/digitization/blob/h5/garfield_data/compute_value_from_csv.py
-'diff_const_sigma0T'    : 0.13475,     # diffusion constant [mm]^2
-'diff_coeff_T'          : 0.0143819,   # diffusion parameter [mm/sqrt(cm)]^2 for 0.8 kV/cm
-#'diff_coeff_T'          : 0.0198721,   # diffusion parameter [mm/sqrt(cm)]^2 for 0.5 kV/cm (RUN 5)
-'diff_const_sigma0L'    : 0.0676,     # diffusion constant [mm]^2
-'diff_coeff_L'          : 0.0103483,    # diffusion parameter [mm/sqrt(cm)]^2 for 0.8 kV/cm
-#'diff_coeff_L'          : 0.0152483,   # diffusion parameter [mm/sqrt(cm)]^2 for 0.5 kV/cm (RUN 5)
+# Detector physics: He/CF4 60/40, 900 mbar, 293.15 K, drift field 950 V/cm (Davide-Melba, Garfield++/Magboltz)
+'diff_const_sigma0T'    : 0.04127,     # transverse diffusion constant sigma0^2 [mm^2]
+'diff_coeff_T'          : 0.02494,     # transverse diffusion coefficient [mm^2/cm]
+'diff_const_sigma0L'    : 0.0676,      # longitudinal diffusion constant sigma0^2 [mm^2]
+'diff_coeff_L'          : 0.008597,    # longitudinal diffusion coefficient [mm^2/cm]
 'ion_pot'               : 0.0350,    # ionization potential for He/CF4 60/40 [keV]
 'photons_per_el'        : 0.07,      # number of photons per electron produced in the avalanche
-'absorption_l'          : 1350.,     # absorption length in [mm]
-'drift_field'           : 0.8,         # drift field [kV/cm]
+'absorption_l'          : 891.7,     # attachment length [mm]
+'drift_field'           : 0.95,      # drift field [kV/cm]
+'drift_velocity'        : 6.25305,   # drift velocity [cm/us] = 16.0 ns per mm; replaces the built-in table (5.91 at this field)
 
 # Detector parameters
-'GEM1_HV'               : 440.,      # HV of GEM1
-'GEM2_HV'               : 440.,      # HV of GEM2
-'GEM3_HV'               : 440.,      # HV of GEM3
+'GEM1_HV'               : 420.,      # HV of GEM1
+'GEM2_HV'               : 420.,      # HV of GEM2
+'GEM3_HV'               : 420.,      # HV of GEM3
 
-'x_dim' : 532.48, # Camera FOV along GEM X (50 cm side) [mm] = 4096 px x 0.130 mm (arXiv:2510.01646 p.70)
-'y_dim' : 299.52, # Camera FOV along GEM Y (80 cm side) [mm] = 2304 px x 0.130 mm; 16:9 Quest2
+'x_dim' : 510.7712, # Camera FOV along GEM X (50 cm side) [mm] = 4096 px x 0.1247 mm (FoV scan report, 655 mm foil-lens distance)
+'y_dim' : 287.3088, # Camera FOV along GEM Y (80 cm side) [mm] = 2304 px x 0.1247 mm; 16:9 Quest2
 
 # Geometry
 'min_drift'             : 0.,        # Response uses deposits with min_drift <= z <= max_drift [mm], z = drift distance from GEM. Rule: 0 <= min_drift < max_drift.
@@ -57,17 +56,17 @@
 
 # Camera parameters
 'Camera_type' : 'Quest2', # CYGNO04: Hamamatsu ORCA-Quest2 qCMOS, 4096x2304
-'camera_aperture'       : 0.95,      # LIME lens f-number (f/0.95), kept on purpose; the CYGNO04 CAD lens EHD-25085-C is f/0.85
+'camera_aperture'       : 0.85,      # f-number of the CYGNO04 lens EHD-25085-C (CAD, Davide-Melba)
 'exposure_time_effect'  : False,      # if True simulates the effect of tracks cut by the sensor being not fully exposed
-'exposure_time'         : 300,       # exposure time in milliseconds
+'exposure_time'         : 500,       # exposure time in milliseconds (0.5 s, as the pedestal runs)
 
-# Saturation parameters from https://github.com/CYGNUS-RD/digitizationpp/tree/49b7014
+# Saturation parameters (Davide-Melba)
 'xy_vox_scale'          : 1, # pixel size / xy voxel dimension (MUST be integer AND >= 1)
 'z_vox_dim'             : 0.1,       # z voxel size in [mm]
 'A'                     : 1,        # free parameter (total scale factor MC/data)
-'beta'                  : 0.8e-5,    # saturation parameter
+'beta'                  : 9.392e-6,  # saturation parameter
 'zcloud'		: 20,        # z dimension of the electron cloud in [mm]
-'c_G'                   : 0.03,      # normalization factor for the Gain saturation model
+'c_G'                   : 0.03087,   # normalization factor for the Gain saturation model
 'alpha_G'               : 0.0209,    # exponential factor or the Gain saturation model
 
 # Background
@@ -81,8 +80,8 @@
 'start_event'		: 0,         # index of the first event to digitize
 
 # Vignetting
-'Vignetting' : False, # No Quest2/CYGNO04 vignetting map in this repo (deferred response uncertainty)
-'Vig_Map'		: 'vignette_runs03930to03932.root',
+'Vignetting' : True, # Davide-Melba map. NOT in this repository: copy it into VignettingMap/ before running
+'Vig_Map'		: 'vignette_ORCA_calibrated.root',
 
 # Operative parameters
 'start_run_number'      : 0,	    # first number for outputfile: histograms_Run<start_run_number%5d>.root
