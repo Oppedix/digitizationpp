@@ -74,8 +74,21 @@ int main(int argc,char** argv) {
             b->SetBranchAddress(("wav_slow_pmt"+to_string(i+1)).c_str(),&slow_b[i]);
             a->SetBranchAddress(("wav_slow_pmt"+to_string(i+1)).c_str(),&slow[i]);
         }
+        // Expected light (save_expected_lambda): pixel list and expected photoelectrons before the Poisson draw.
+        vector<uint16_t>* eix=nullptr;vector<uint16_t>* eiy=nullptr;vector<double>* elam=nullptr;vector<double>* elam_b=nullptr;
+        vector<unsigned>* six=nullptr;vector<unsigned>* siy=nullptr;
+        a->SetBranchAddress("expected_ix",&eix);a->SetBranchAddress("expected_iy",&eiy);a->SetBranchAddress("expected_lambda_e",&elam);
+        b->SetBranchAddress("expected_lambda_e",&elam_b);a->SetBranchAddress("obs_camera_ix",&six);a->SetBranchAddress("obs_camera_iy",&siy);
         for(int entry=0;entry<5;++entry) {
             a->GetEntry(entry);b->GetEntry(entry);c->GetEntry(entry);
+            // One positive value per listed pixel, same seed -> same values, nothing for an invalid record.
+            assert(eix->size()==elam->size() && eiy->size()==elam->size() && *elam==*elam_b);
+            assert(all_of(elam->begin(),elam->end(),[](double v){return v>0;}));
+            if(!r.valid) assert(elam->empty());
+            if(entry==0) assert(!elam->empty()); // The fixture gives ~0.04 expected photoelectrons: too few to test mean(sampled)=expected here.
+            // A pixel with sampled light must have expected light (same pixel indices as obs_camera_ix/iy).
+            set<pair<int,int>> lit;for(size_t i=0;i<eix->size();++i) lit.insert({(*eix)[i],(*eiy)[i]});
+            for(size_t i=0;i<six->size();++i) assert(lit.count({(*six)[i],(*siy)[i]}));
             assert(*image==*other && image->size()==1024);
             for(int i=0;i<8;++i) {assert(fast[i]->size()==1024 && slow[i]->size()==4000);assert(*fast[i]==*fast_b[i] && *slow[i]==*slow_b[i]);}
             if(entry==0) {assert(r.valid && r.initial_uy==(string(argv[2]).find("/one/")!=string::npos ? -1 : 1) && abs(r.evis_total_keV-(r.primary_pdg==11 ? 4 : 2.8))<1e-10);assert(*image!=*changed);assert(parent_id->find(":7")!=string::npos);}
@@ -84,6 +97,7 @@ int main(int argc,char** argv) {
         }
         a->ResetBranchAddresses();b->ResetBranchAddresses();c->ResetBranchAddresses();
         delete light_valid;delete truth_z;delete image;delete other;delete changed;delete parent_id;delete reason;
+        delete eix;delete eiy;delete elam;delete elam_b;delete six;delete siy;
         for(auto wave:fast) delete wave;for(auto wave:fast_b) delete wave;for(auto wave:slow) delete wave;for(auto wave:slow_b) delete wave;
         return 0;
     }

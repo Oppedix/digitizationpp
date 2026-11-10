@@ -241,6 +241,8 @@ branches; generated direction comes exclusively from the file-local tree1 join.
 | obs_camera_counts | vector<double>[H*W], sensor counts | Noisy camera model input, reshape [H,W] with flat index y*W+x |
 | obs_camera_ix, obs_camera_iy | vector<unsigned int>[K], pixel indices | Lossless sparse signal coordinates |
 | obs_camera_signal | vector<double>[K], sensor counts | Signal-only audit/simulation view, NOT a noisy pedestal image |
+| expected_ix, expected_iy | vector<uint16_t>[M], pixel indices | Pixels with expected light; same indices as obs_camera_ix/iy. Only with save_expected_lambda |
+| expected_lambda_e | vector<double>[M], photoelectrons | Expected detected photoelectrons before the Poisson draw. Times the counts per photoelectron (1/0.107 for Quest) it is the expected obs_camera_signal. Truth, NOT a model input |
 | wav_fast_pmt1 ... wav_fast_pmt8 | vector<double>[fast_window_len], V | Stack channels in numeric order to [8,fast_samples] |
 | wav_slow_pmt1 ... wav_slow_pmt8 | vector<double>[slow_window_len], V | Stack to [8,slow_samples] |
 | pmt_signal_valid | vector<int>[8], 0/1 | Collected-light indicator; not a hardware trigger bit |

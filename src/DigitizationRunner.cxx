@@ -1179,7 +1179,7 @@ void DigitizationRunner::processRootFiles() {
                                                         expected_lambda_e
                                                         )) {
                     std::cerr<<"Warning: DigitizationRunner::processRootFiles: skipping this track because of error from TrackProcessor::computeWithSaturation."<<std::endl;
-
+                    expected_ix.clear();expected_iy.clear();expected_lambda_e.clear(); // a skipped track has no expected light
                     // The reported energy is -1 for those tracks to be recognizable
                     if(twin_mode) {ml.reject_reason="detector response failed";ml.camera_counts.assign(static_cast<size_t>(x_pix)*y_pix,0.);}
                     energy = -1;
@@ -1285,7 +1285,7 @@ void DigitizationRunner::processRootFiles() {
                     if(!twin_mode) throw;
                     ml.valid=false;ml.reject_reason=string("detector response: ")+error.what();
                     ml.camera_counts.assign(static_cast<size_t>(x_pix)*y_pix,0.);
-                    ml.camera_ix.clear();ml.camera_iy.clear();ml.camera_signal.clear();
+                    ml.camera_ix.clear();ml.camera_iy.clear();ml.camera_signal.clear();expected_ix.clear();expected_iy.clear();expected_lambda_e.clear();
                     for(int i=0;i<pmt_count;++i) {
                         wav_fast[i].assign(config.getInt("fast_window_len"),0.);
                         wav_slow[i].assign(config.getInt("slow_window_len"),0.);

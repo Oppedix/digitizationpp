@@ -96,6 +96,7 @@
 'queue'                 : 0,	     # If you are sending to the CNAF queue write 1. The outputfiles will be forced to be written in local folder to be sent to cloud
 'redpix_output'         : True,       # Signal-only sparse pixels + event_info, no camera images/pedestal noise; output digi_RunXXXXX.root. False saves images.
 
+'save_expected_lambda'  : True,        # Sparse expected light before the Poisson draw: expected_ix, expected_iy, expected_lambda_e (cluster labels; shared with BATMAN)
 'save_mc_first3_hits'   : False,       # Save first 3 original GEANT hits; generated direction must be joined from MC truth.
 
 ## PMT side

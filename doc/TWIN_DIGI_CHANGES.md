@@ -1,7 +1,8 @@
 # `twin-cygno04` vs `main`: what changes in the digitizer
 
 Branch `twin-cygno04` of `Oppedix/digitizationpp` = **upstream `CYGNUS-RD/digitizationpp` `main`
-(`f250be5`, 2026-11-04) + the additions below**. Fork `main` is an exact copy of upstream `main`.
+(`f250be5`, 2026-11-04) + the additions below**, including the expected-light export merged from branch
+`batman` (§4.6). Fork `main` is an exact copy of upstream `main`.
 Line numbers refer to this branch. They are written as `file:line` and link to the line on GitHub.
 
 **Rule kept throughout:** with no new keys, or the new keys at their defaults, the digitizer does what upstream
@@ -31,7 +32,7 @@ track, a track crossing `max_drift`, an empty event, a sub-`ion_pot` event, a lo
 * The only differences:
   * (a) a new branch `pmt_signal_valid`;
   * (b) `particle_type` of the empty event. Upstream reads `pdgID_hits[0]` of an empty vector, which is
-    undefined behaviour; this branch writes 0 ([DigitizationRunner.cxx:870](../src/DigitizationRunner.cxx#L870)).
+    undefined behaviour; this branch writes 0 ([DigitizationRunner.cxx:893](../src/DigitizationRunner.cxx#L893)).
 * The run had to use `min_drift: 1e-6`, because upstream `main` **aborts on the first event with its own
   default `min_drift: 0`** (§3).
 
@@ -47,7 +48,7 @@ runner and TWIN:
   Upstream would accept it and silently select no deposits.
 * **Removed key:** an old `drift_length` key now raises a clear error instead of being silently ignored.
 * **When it runs:** once in the constructor ([DigitizationRunner.cxx:54](../src/DigitizationRunner.cxx#L54)), before any
-  output is opened. The interval is applied at [:1131](../src/DigitizationRunner.cxx#L1131)–[:1134](../src/DigitizationRunner.cxx#L1134).
+  output is opened. The interval is applied at [:1154](../src/DigitizationRunner.cxx#L1154)–[:1157](../src/DigitizationRunner.cxx#L1157).
 * **TWIN:** requires exactly 0 and 500 mm ([TwinPlacement.h:47](../include/TwinPlacement.h#L47)).
 * **Tests:** [test_twin.cxx:98](../tests/test_twin.cxx#L98) covers the defaults, the shipped values, the swapped and empty
   intervals, negative/NaN/inf/non-numeric values, `drift_length`, and the TWIN 0–500 requirement.
@@ -68,7 +69,7 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 |---|---|---|
 | [DriftRange.h:11](../include/DriftRange.h#L11) | New helper `activeDriftRange` | Reads `min_drift`/`max_drift` (defaults 0 and 510 mm). Rejects text that is not a number, negative/NaN/infinite values, `max_drift <= min_drift`, and the removed key `drift_length` |
 | [DigitizationRunner.cxx:54](../src/DigitizationRunner.cxx#L54) | Checked at start-up | A bad interval stops the run before any output file or download |
-| [DigitizationRunner.cxx:1131](../src/DigitizationRunner.cxx#L1131)–[:1134](../src/DigitizationRunner.cxx#L1134) | Interval applied | Only deposits with `min_drift <= z <= max_drift` produce light. Track metadata still uses every hit |
+| [DigitizationRunner.cxx:1154](../src/DigitizationRunner.cxx#L1154)–[:1157](../src/DigitizationRunner.cxx#L1157) | Interval applied | Only deposits with `min_drift <= z <= max_drift` produce light. Track metadata still uses every hit |
 
 ### 4.2 PMTs: 1–8 channels (all modes)
 
@@ -77,10 +78,10 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 | [PMTHits.cxx:17](../src/PMTHits.cxx#L17), [PMTHits.h:44](../include/PMTHits.h#L44) | New `validateGeometry` | `pmt_number` must be a whole number 1–8. Every `pmt_N_x/y`, `pmt_radius` and `dist_gem_pmt` must be a finite number, radius and distance positive. A `'REQUIRED'` placeholder fails |
 | [DigitizationRunner.cxx:60](../src/DigitizationRunner.cxx#L60) | Called at start-up | Geometry errors stop the run before any download |
 | [PMTSignal.cxx:163](../src/PMTSignal.cxx#L163)–165 | Waveforms for `pmt_1..pmt_number` | Upstream always simulated 4 PMTs |
-| [DigitizationRunner.cxx:704](../src/DigitizationRunner.cxx#L704) | Output arrays sized by `pmt_number` | Sized once and never resized, because ROOT keeps the addresses |
-| [DigitizationRunner.cxx:782](../src/DigitizationRunner.cxx#L782) | Output branches | `wav_fast_pmtN` / `wav_slow_pmtN` for N = 1..`pmt_number` (LIME names unchanged), plus the new `pmt_signal_valid` |
-| [DigitizationRunner.cxx:1249](../src/DigitizationRunner.cxx#L1249) | `pmt_signal_valid` filled | 1 if that PMT collected at least one photoelectron, else 0 |
-| [DigitizationRunner.cxx:802](../src/DigitizationRunner.cxx#L802) | Per-event reset | Events without light keep **empty** waveforms, as upstream. Only TWIN fills them with zeros to the window length |
+| [DigitizationRunner.cxx:710](../src/DigitizationRunner.cxx#L710) | Output arrays sized by `pmt_number` | Sized once and never resized, because ROOT keeps the addresses |
+| [DigitizationRunner.cxx:802](../src/DigitizationRunner.cxx#L802) | Output branches | `wav_fast_pmtN` / `wav_slow_pmtN` for N = 1..`pmt_number` (LIME names unchanged), plus the new `pmt_signal_valid` |
+| [DigitizationRunner.cxx:1275](../src/DigitizationRunner.cxx#L1275) | `pmt_signal_valid` filled | 1 if that PMT collected at least one photoelectron, else 0 |
+| [DigitizationRunner.cxx:825](../src/DigitizationRunner.cxx#L825) | Per-event reset | Events without light keep **empty** waveforms, as upstream. Only TWIN fills them with zeros to the window length |
 
 ### 4.3 PMT noise options (all modes)
 
@@ -94,7 +95,7 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 
 | Code | What changed | How |
 |---|---|---|
-| [DigitizationRunner.cxx:870](../src/DigitizationRunner.cxx#L870) | `particle_type` of an event without hits | Written as 0. Upstream read the first element of an empty list (undefined behaviour) |
+| [DigitizationRunner.cxx:893](../src/DigitizationRunner.cxx#L893) | `particle_type` of an event without hits | Written as 0. Upstream read the first element of an empty list (undefined behaviour) |
 | [DigitizationRunner.cxx:292](../src/DigitizationRunner.cxx#L292) | Missing vignetting map | The run stops with `Vignetting map not found` and the path. Upstream used the unopened file (crash) |
 | [DigitizationRunner.cxx:237](../src/DigitizationRunner.cxx#L237) | Text settings in `param_dir` | Text-valued keys (`pmt_noise_channels`, `twin_*` names) are skipped when the config is saved as numbers |
 
@@ -104,19 +105,29 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 |---|---|---|
 | [DigitizationRunner.cxx:56](../src/DigitizationRunner.cxx#L56)–57, [TwinPlacement.h:24](../include/TwinPlacement.h#L24)–51, [TwinML.h:91](../include/TwinML.h#L91) | Start-up checks | Verified geometry, every `REQUIRED` key filled, and the fixed settings (8 PMTs, both digitizers, `bckg: False`, synthetic noise, drift 0–500 mm, no exposure effect, versioned build). Any failure stops the run |
 | [DigitizationRunner.cxx:509](../src/DigitizationRunner.cxx#L509), [TwinML.h:19](../include/TwinML.h#L19) | Input checks | Every needed MC branch and `tree1` must exist, and event numbers must be unique, before any output is written |
-| [DigitizationRunner.cxx:1029](../src/DigitizationRunner.cxx#L1029) | Light source | The response uses `energyDep_hits_QF` for electron and nuclear recoils alike |
+| [DigitizationRunner.cxx:1052](../src/DigitizationRunner.cxx#L1052) | Light source | The response uses `energyDep_hits_QF` for electron and nuclear recoils alike |
 | [TwinPlacement.h:14](../include/TwinPlacement.h#L14), [:81](../include/TwinPlacement.h#L81) | Track placement | A hash of the parent ID and `twin_master_seed` picks one of 3 cameras and one XY shift that keeps **all** hits inside that camera's view and the GEM (up to 10000 tries). Z is shifted so the energy-weighted centroid reaches the depth band of `variant_id`. Camera and XY are the same for all 4 variants |
-| [TwinPlacement.h:73](../include/TwinPlacement.h#L73)/[:77](../include/TwinPlacement.h#L77), [DigitizationRunner.cxx:1071](../src/DigitizationRunner.cxx#L1071), [:1220](../src/DigitizationRunner.cxx#L1220) | Two frames | The camera image is drawn in the chosen camera's own frame. PMT light is computed back in the GEM frame, so all 8 PMTs see the event where it really is |
-| [TrackProcessor.cxx:101](../src/TrackProcessor.cxx#L101), 203/292/408/484, [:571](../src/TrackProcessor.cxx#L571), [:581](../src/TrackProcessor.cxx#L581) | Photon counts as decimals | No rounding per voxel or pixel. The standard path still rounds, as upstream |
-| [DigitizationRunner.cxx:1198](../src/DigitizationRunner.cxx#L1198) | PMT photoelectron yield | photons × `photons_per_el` × `twin_pmt_quantum_efficiency`. The standard path keeps upstream's fixed 0.0136 |
-| [DigitizationRunner.cxx:1209](../src/DigitizationRunner.cxx#L1209), [:1227](../src/DigitizationRunner.cxx#L1227), [:1237](../src/DigitizationRunner.cxx#L1237), [TwinML.h:140](../include/TwinML.h#L140) | PMT timing | Drift times keep their sign (no `abs`). Time zero is the first photoelectron on any of the 8 PMTs, not the smallest z |
-| [TwinML.h:134](../include/TwinML.h#L134), [PMTHits.cxx:53](../src/PMTHits.cxx#L53), [PMTSignal.cxx:58](../src/PMTSignal.cxx#L58), [TrackProcessor.cxx:709](../src/TrackProcessor.cxx#L709), [DigitizationRunner.cxx:81](../src/DigitizationRunner.cxx#L81), [:825](../src/DigitizationRunner.cxx#L825) | Reproducibility | Separate named seeds for charge, collection, single-photoelectron pulses and electronics, all derived from the record seed. One thread. Same input and config give bit-identical output |
+| [TwinPlacement.h:73](../include/TwinPlacement.h#L73)/[:77](../include/TwinPlacement.h#L77), [DigitizationRunner.cxx:1094](../src/DigitizationRunner.cxx#L1094), [:1246](../src/DigitizationRunner.cxx#L1246) | Two frames | The camera image is drawn in the chosen camera's own frame. PMT light is computed back in the GEM frame, so all 8 PMTs see the event where it really is |
+| [TrackProcessor.cxx:104](../src/TrackProcessor.cxx#L104), 206/295/411/487, [:600](../src/TrackProcessor.cxx#L600), [:605](../src/TrackProcessor.cxx#L605) | Photon counts as decimals | No rounding per voxel or pixel. The standard path still rounds, as upstream |
+| [DigitizationRunner.cxx:1224](../src/DigitizationRunner.cxx#L1224) | PMT photoelectron yield | photons × `photons_per_el` × `twin_pmt_quantum_efficiency`. The standard path keeps upstream's fixed 0.0136 |
+| [DigitizationRunner.cxx:1235](../src/DigitizationRunner.cxx#L1235), [:1253](../src/DigitizationRunner.cxx#L1253), [:1263](../src/DigitizationRunner.cxx#L1263), [TwinML.h:140](../include/TwinML.h#L140) | PMT timing | Drift times keep their sign (no `abs`). Time zero is the first photoelectron on any of the 8 PMTs, not the smallest z |
+| [TwinML.h:134](../include/TwinML.h#L134), [PMTHits.cxx:53](../src/PMTHits.cxx#L53), [PMTSignal.cxx:58](../src/PMTSignal.cxx#L58), [TrackProcessor.cxx:733](../src/TrackProcessor.cxx#L733), [DigitizationRunner.cxx:81](../src/DigitizationRunner.cxx#L81), [:848](../src/DigitizationRunner.cxx#L848) | Reproducibility | Separate named seeds for charge, collection, single-photoelectron pulses and electronics, all derived from the record seed. One thread. Same input and config give bit-identical output |
 | [PMTSignal.cxx:183](../src/PMTSignal.cxx#L183), [TwinML.h:171](../include/TwinML.h#L171) | Synthetic noise | Seeded Gaussian noise: `twin_pmt_noise_rms_v` per PMT sample, `twin_camera_noise_rms_counts` per camera pixel. No templates are downloaded |
-| [TwinML.h:147](../include/TwinML.h#L147), [:158](../include/TwinML.h#L158), [DigitizationRunner.cxx:713](../src/DigitizationRunner.cxx#L713), [:819](../src/DigitizationRunner.cxx#L819) | ML record | One record per MC event: truth (`ml_*`), observables (`obs_*`) and audit branches (§5) |
+| [TwinML.h:147](../include/TwinML.h#L147), [:158](../include/TwinML.h#L158), [DigitizationRunner.cxx:719](../src/DigitizationRunner.cxx#L719), [:842](../src/DigitizationRunner.cxx#L842) | ML record | One record per MC event: truth (`ml_*`), observables (`obs_*`) and audit branches (§5) |
 | [DigitizationRunner.cxx:467](../src/DigitizationRunner.cxx#L467) | Legacy sparse pixels | `redpix_iz` is capped at 65535 and `ml_legacy_sparse_clipped` is set. Use `obs_camera_*` instead |
-| [DigitizationRunner.cxx:1271](../src/DigitizationRunner.cxx#L1271) | `N_photons` | Written as −1. The upstream integer sum can overflow with decimal counts |
-| [DigitizationRunner.cxx:1065](../src/DigitizationRunner.cxx#L1065), [:1258](../src/DigitizationRunner.cxx#L1258) | Failures | A failing event becomes a record with `ml_valid = False` and a reason. The run continues |
+| [DigitizationRunner.cxx:1297](../src/DigitizationRunner.cxx#L1297) | `N_photons` | Written as −1. The upstream integer sum can overflow with decimal counts |
+| [DigitizationRunner.cxx:1088](../src/DigitizationRunner.cxx#L1088), [:1284](../src/DigitizationRunner.cxx#L1284) | Failures | A failing event becomes a record with `ml_valid = False` and a reason. The run continues |
 | [CMakeLists.txt:98](../CMakeLists.txt#L98), [TwinML.h:125](../include/TwinML.h#L125), [DigitizationRunner.cxx:642](../src/DigitizationRunner.cxx#L642) | Provenance | CMake compiles in the git commit (`-dirty` if there are local changes). TWIN files store it with the full config |
+
+### 4.6 Expected-light export (all modes, merged from branch `batman`)
+
+Off unless `save_expected_lambda: True`. The TWIN config switches it on.
+
+| Code | What changed | How |
+|---|---|---|
+| [TrackProcessor.cxx:578](../src/TrackProcessor.cxx#L578), [:595](../src/TrackProcessor.cxx#L595), [DigitizationRunner.cxx:699](../src/DigitizationRunner.cxx#L699), [:785](../src/DigitizationRunner.cxx#L785) | Expected light per pixel | Every pixel with expected light λ > 0 is written as `expected_ix`, `expected_iy`, `expected_lambda_e`: the expected number of detected photoelectrons **before** the Poisson draw, after vignetting, lens acceptance and quantum efficiency. Pixel indices are those of `redpix_ix/iy` and `obs_camera_ix/iy` |
+| [TrackProcessor.cxx:600](../src/TrackProcessor.cxx#L600) | Poisson draw | Uses the same λ. The number and the random draws are unchanged, in the standard path and in TWIN mode (merge conflict resolved here) |
+| [DigitizationRunner.cxx:1182](../src/DigitizationRunner.cxx#L1182), [:1288](../src/DigitizationRunner.cxx#L1288) | Error paths | A skipped track and an invalid TWIN record have empty expected-light vectors |
 
 ## 5. What the digitizer writes
 
@@ -130,6 +141,7 @@ when `redpix_output: True`, each with the tree `event_info` and the `param_dir` 
 | `wav_fast_pmtN`, `wav_slow_pmtN` | N = 1–4 | N = 1..`pmt_number` (1–8) |
 | `pmt_signal_valid` | — | `vector<int>[pmt_number]`, 1 = PMT collected light |
 | `particle_type` of an event without hits | undefined | 0 |
+| `expected_ix`, `expected_iy`, `expected_lambda_e` | — | Only with `save_expected_lambda: True` (§4.6) |
 
 With `pmt_mode: False` no PMT branch is written.
 
@@ -140,6 +152,7 @@ With `pmt_mode: False` no PMT branch is written.
 | **Model inputs** | `obs_camera_counts`, `obs_camera_width`, `obs_camera_height` | Full noisy camera image of the chosen camera (H × W, flat index y·W + x) |
 | | `wav_fast_pmt1..8`, `wav_slow_pmt1..8` | All 8 PMTs, fixed length (`fast_window_len`, `slow_window_len`), in volts |
 | **Signal without noise** | `obs_camera_ix`, `obs_camera_iy`, `obs_camera_signal` | Sparse camera signal before noise, exact (decimal counts) |
+| | `expected_ix`, `expected_iy`, `expected_lambda_e` | Expected photoelectrons per pixel before the Poisson draw (§4.6); truth, not a model input |
 | | `pmt_signal_valid` | Which PMTs collected light (simulation flag, not a model input) |
 | **Truth** (`ml_*`, 28 branches) | `ml_hit_x/y/z_mm`, `ml_hit_evis_keV`, `ml_hit_edep_keV` | Every hit after placement, with visible and raw energy |
 | | `ml_initial_ux/uy/uz`, `ml_direction_valid`, `ml_primary_energy_MeV`, `ml_primary_vertex_mm` | Generated direction, energy and vertex from `tree1` |
@@ -164,7 +177,8 @@ Types, units and which branches may be model inputs: [TWIN_SCHEMA.md](TWIN_SCHEM
 | `pmt_number` | 4 | Now 1–8 |
 | `pmt_noise` | `True` | `False` gives noiseless PMT waveforms |
 | `pmt_noise_channels` | identity | `';'`-separated PSD template channel per PMT |
-| `drift_velocity` | absent: built-in table at `drift_field` | Drift velocity in cm/µs used for the PMT arrival times ([Utils.cxx:118](../src/Utils.cxx#L118), [DigitizationRunner.cxx:1196](../src/DigitizationRunner.cxx#L1196)). Must be a positive number; checked at start-up. The table gives 5.91 at 0.95 kV/cm, the TWIN config sets 6.25305 |
+| `drift_velocity` | absent: built-in table at `drift_field` | Drift velocity in cm/µs used for the PMT arrival times ([Utils.cxx:118](../src/Utils.cxx#L118), [DigitizationRunner.cxx:1222](../src/DigitizationRunner.cxx#L1222)). Must be a positive number; checked at start-up. The table gives 5.91 at 0.95 kV/cm, the TWIN config sets 6.25305 |
+| `save_expected_lambda` | `False` | Writes the sparse expected light `expected_ix`, `expected_iy`, `expected_lambda_e` (§4.6) |
 | `twin_cygno04_mode` | `False` | Enables TWIN. All `twin_*` keys, `variant_id` and the `REQUIRED` per-run inputs are documented inline in `ConfigFile_TWIN_CYGNO04.txt` |
 
 Each key is commented where it is used: [ConfigFile_new.txt:25](../config/ConfigFile_new.txt#L25), [:102](../config/ConfigFile_new.txt#L102)–104, [:135](../config/ConfigFile_new.txt#L135); [ConfigFile_CYGNO04_8PMT.txt:1](../config/ConfigFile_CYGNO04_8PMT.txt#L1)–12 (how to switch camera) and [:115](../config/ConfigFile_CYGNO04_8PMT.txt#L115)–122.
@@ -240,6 +254,8 @@ Other sources:
 
 * **Not tested here:** the full CMake build with ROOTANA and OpenCV (pedestal download, measured PSD noise
   IFFT), and real CYGNO-MC files. All tests in §10 and the §2 comparison use stubs for these two libraries only.
+* **After the `batman` merge:** the §2 comparison with upstream was not repeated. The standard path draws the
+  same Poisson numbers from the same λ, so it is unchanged by construction, not by a new measurement.
 * **Camera storage:** TWIN `obs_camera_counts` stores the full 4096 × 2304 noisy image, about 75 MB per event.
   It must be made sparse before production.
 * **Calibration gaps:**
