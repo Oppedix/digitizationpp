@@ -58,6 +58,7 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
     }
     if (config.getBool("pmt_mode")) {
         PhotonPropagation::validateGeometry(config.getOptions());
+        Utils::drift_velocity(config.get("drift_velocity"), config.getDouble("drift_field")); // fail before the event loop
         if (config.getInt("fast_window_len") <= 0 || config.getInt("slow_window_len") <= 0)
             throw invalid_argument("PMT waveform lengths must be positive");
         SignalSimulation::noiseTemplateChannels(config.getOptions(),
@@ -65,7 +66,6 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
         SignalSimulation::noiseEnabled(config.getOptions());
     }
 
-    
 
     runCount = config.getInt("start_run_number");
     
@@ -1193,7 +1193,7 @@ void DigitizationRunner::processRootFiles() {
                     
                     // 1. Properties Setup
                     const double drift_field = config.getDouble("drift_field"); 
-                    const double v_drift_mm_ns = Utils::compute_drift_velocity(drift_field) / 100.0;
+                    const double v_drift_mm_ns = Utils::drift_velocity(config.get("drift_velocity"), drift_field) / 100.0; // key 'drift_velocity' [cm/us] replaces the table when set
                     // Voxel amplitudes are saturated GEM charge; camera and PMTs share its photon yield.
                     const double qe_factor = twin_mode ? config.getDouble("photons_per_el") *
                         config.getDouble("twin_pmt_quantum_efficiency") : 0.0136;

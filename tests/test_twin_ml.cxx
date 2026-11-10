@@ -1,6 +1,7 @@
 #include "TwinML.h"
 #include "PMTSignal.h"
 #include "DigitizationRunner.h"
+#include "Utils.h"
 #include "TFile.h"
 #include <cassert>
 #include <fstream>
@@ -87,6 +88,12 @@ int main(int argc,char** argv) {
         return 0;
     }
     assert(mode=="unit");
+    // drift_velocity key [cm/us]: absent -> table (4.06 + 0.9*(6.12-4.06) = 5.914 at 0.95 kV/cm); set -> that value.
+    assert(fabs(Utils::drift_velocity("",0.95)-5.914)<1e-9 && Utils::drift_velocity("6.25305",0.95)==6.25305);
+    for(const string bad:{"0","-1","nan","fast","6.2x"}) {
+        bool refused=false;
+        try {Utils::drift_velocity(bad,0.95);}catch(const invalid_argument&){refused=true;}assert(refused);
+    }
     for(int pdg:{11,1000020040,1000060120,1000090190}) {
         const bool nr=pdg!=11;
         assert(TwinML::energies({2,1},{nr ? .5 : 2.,1},{pdg,11},{nr ? .5 : 0.,0},{.3,1},3,nr ? 1.5 : 3)==(nr ? 1.5 : 3));

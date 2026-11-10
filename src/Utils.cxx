@@ -114,5 +114,16 @@ double compute_drift_velocity(double electric_field) {
     return 0.0; // Safety fallback
 }
 
+// Drift velocity (cm/us): the config key 'drift_velocity' when set, otherwise the table above.
+double drift_velocity(const std::string& configured, double electric_field) {
+    if (configured.empty()) return compute_drift_velocity(electric_field);
+    size_t used = 0;
+    double value = 0.;
+    try { value = std::stod(configured, &used); } catch (const std::exception&) { used = 0; }
+    if (used != configured.size() || !std::isfinite(value) || value <= 0.)
+        throw std::invalid_argument("drift_velocity must be a positive number [cm/us]: '" + configured + "'");
+    return value;
+}
+
 
 }

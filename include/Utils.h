@@ -89,4 +89,13 @@ namespace Utils {
      */
      double compute_drift_velocity(double electric_field);
 
+    /**
+     * @brief Drift velocity used for the PMT arrival times, in [cm/us].
+     *
+     * @param configured Text of the optional config key 'drift_velocity' [cm/us]; empty if the key is absent.
+     * @param electric_field Drift field in [kV/cm], used only when 'drift_velocity' is absent.
+     * @return The configured value if given (must be a positive number), otherwise compute_drift_velocity().
+     */
+     double drift_velocity(const std::string& configured, double electric_field);
+
 }
