@@ -95,10 +95,13 @@ Without it the run stops at once with `Vignetting map not found`.
 4. **Side R:** set `twin_side: 'R'`, `MC_xaxis: '-x'`, `MC_zaxis: '-z'`; `z_offset` stays 510.03.
 5. **Extra noise replicas** of the same tracks: change `twin_response_id` (or `twin_detector_seed`).
    Camera choice and placement do not change.
-6. **Real camera pedestals:** set `bckg: True`, list one or more pedestal runs in `noiserun` (`'94900;94564'`)
+6. **Images for the reconstruction:** set `redpix_output: False`. Besides `digi_RunXXXXX.root` (the records, to
+   keep) the run then writes `histograms_RunXXXXX.root` with one image `pic_run<N>_ev<M>` per valid record, in the
+   format the reconstruction reads; `M` is the row of the record in `event_info`.
+7. **Real camera pedestals:** set `bckg: True`, list one or more pedestal runs in `noiserun` (`'94900;94564'`)
    and give the pedestal file a name that contains every run number (`bckg_name: 'pedestals_train_94900_94564.root'`,
    in `bckg_path`). The file is built from the runs if it does not exist, as in the standard digitizer. Each
-   record then gets one frame of that file; `pedestal_frame` says which. **Use one config per split, with
+   image then gets one frame of that file; `pedestal_frame` says which. **Use one config per split, with
    different runs**: a run must never serve two splits.
 
 TWIN fixes these settings and stops at start-up if any differs:
@@ -107,7 +110,7 @@ TWIN fixes these settings and stops at start-up if any differs:
 |---|---|---|
 | `pmt_mode`, `pmt_number` | `True`, 8 | All 8 PMTs are part of every record |
 | `digitizers` | `Both` | Fast and slow waveforms in every record |
-| `twin_noise_mode` | `synthetic` | Seeded Gaussian PMT noise, no measured-PSD download; Gaussian camera noise when `bckg` is `False` |
+| `twin_noise_mode` | `synthetic` | Seeded Gaussian PMT noise, no measured-PSD download |
 | `random_ped` | `-1` when `bckg` is `True` | One random pedestal frame per record |
 | `exposure_time_effect` | `False` | Rolling-shutter cuts would remove truth |
 | `min_drift` | 0 | Every hit must lie between the GEM and `max_drift`, the drift length (510 mm for CYGNO04) |
@@ -132,12 +135,13 @@ Stack the PMT channels and reshape the camera like this:
 
 ```python
 import ROOT, numpy as np
-f = ROOT.TFile.Open("out_v0/digi_Run00001.root"); t = f.Get("event_info")
+f = ROOT.TFile.Open("out/digi_Run00000.root"); t = f.Get("event_info")
 for e in t:
     if not e.ml_valid: continue
     fast = np.stack([np.asarray(getattr(e, f"wav_fast_pmt{i}")) for i in range(1, 9)])  # [8, fast_window_len]
     slow = np.stack([np.asarray(getattr(e, f"wav_slow_pmt{i}")) for i in range(1, 9)])  # [8, slow_window_len]
-    cam = np.asarray(e.obs_camera_counts).reshape(e.obs_camera_height, e.obs_camera_width)
+    signal = np.zeros((e.obs_camera_height, e.obs_camera_width))                          # camera signal without pedestal
+    signal[np.asarray(e.obs_camera_iy), np.asarray(e.obs_camera_ix)] = np.asarray(e.obs_camera_signal)
 ```
 
 Records of the same track share `ml_parent_id`. `python3 tools/inspect_twin_event.py <file> --entry 0` draws one record:
@@ -246,8 +250,8 @@ branches; generated direction comes exclusively from the file-local tree1 join.
 | Branch | Type, shape, unit | Use |
 |---|---|---|
 | obs_camera_width, obs_camera_height | int scalars W,H | Observable fixed geometry |
-| obs_camera_counts | vector<double>[H*W], sensor counts | Camera model input, reshape [H,W] with flat index y*W+x. Signal plus Gaussian noise; with bckg=True signal plus one real pedestal frame, pedestal level included |
-| pedestal_frame | int scalar | Audit: index of the pedestal frame used (pic_<index> of the pedestal file); -1 with bckg=False |
+| image file | TH2I `pic_run<N>_ev<M>` in histograms_RunXXXXX.root, sensor counts | Camera model input, written with redpix_output=False: signal (integer counts) plus the pedestal frame when bckg=True. M is the row in event_info |
+| pedestal_frame | int scalar | Audit: index of the pedestal frame in the image (pic_<index> of the pedestal file); -1 with bckg=False |
 | obs_camera_ix, obs_camera_iy | vector<unsigned int>[K], pixel indices | Lossless sparse signal coordinates |
 | obs_camera_signal | vector<double>[K], sensor counts | Signal-only audit/simulation view, NOT a noisy pedestal image |
 | expected_ix, expected_iy | vector<uint16_t>[M], pixel indices | Pixels with expected light; same indices as obs_camera_ix/iy. Only with save_expected_lambda |
@@ -256,7 +260,7 @@ branches; generated direction comes exclusively from the file-local tree1 join.
 | wav_slow_pmt1 ... wav_slow_pmt8 | vector<double>[slow_window_len], V | Stack to [8,slow_samples] |
 | pmt_signal_valid | vector<int>[8], 0/1 | Collected-light indicator; not a hardware trigger bit |
 
-Safe inference features are obs_camera_counts, the sixteen named waveforms,
+Safe inference features are the camera image (histograms_RunXXXXX.root), the sixteen named waveforms,
 and fixed camera/side/geometry/sampling identifiers if needed. Do not use
 placement, source truth, generated energy, absolute depth, seeds, parent IDs,
 validity/rejection labels or response/variant IDs as features. A builder filters
@@ -288,9 +292,8 @@ This is an ideal detected-light trigger, **not a calibrated electronic threshold
 No collected light means no trigger/pulse, but synthetic baseline noise still fills
 all enabled channels and declared sample lengths.
 
-`twin_noise_mode=synthetic` is the required offline TWIN mode. With bckg=False camera noise is
-independent zero-mean Gaussian counts with configured twin_camera_noise_rms_counts; with
-bckg=True every record gets one real pedestal frame instead (see Usage, Mode E).
+`twin_noise_mode=synthetic` is the required offline TWIN mode: it gives the PMT noise. There is no
+synthetic camera noise; with bckg=True every image gets one real pedestal frame (see Usage, Mode E).
 TWIN applies photons_per_el once to saturated GEM charge, then the explicitly
 required twin_pmt_quantum_efficiency before the existing geometric Poisson
 collection. This makes the photon-yield convention explicit for both camera and
@@ -304,7 +307,7 @@ is claimed. Outside TWIN, measured-PSD
 loading/downloads and existing noise generation are unchanged.
 
 ml_seed hashes parent ID, twin_detector_seed, variant ID and response ID.
-Named nonzero seeds drive charge/camera photons, camera Gaussian noise, geometric
+Named nonzero seeds drive charge/camera photons, the pedestal frame, geometric
 collection, SPE and electronics independently. TWIN runs the existing TBB renderer
 with one thread for reproducible draw/order behavior. Exact repeatability is
 supported for the same binary, libraries, platform and config; standard-library
@@ -333,8 +336,8 @@ rigidly placed track, including out-of-interval hits, and its placement metadata
 No partial response is generated for TWIN
 training. response_hit_index is empty if containment/placement fails. If response fails after
 placement, full placed truth survives and the row remains invalid. Invalid rows
-have zero observation arrays/waveforms of declared lengths and must be filtered.
-No-signal valid rows instead have the sensor baseline noise or pedestal frame. Invalid input
+have empty camera signal, no image and zero waveforms of declared lengths, and must be filtered.
+No-signal valid rows have an image with the pedestal frame only. Invalid input
 schema/duplicate event IDs/configuration fail the file/run, not silent coercion.
 
 Legacy event_info branches retain their names when TWIN is off. Existing

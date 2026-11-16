@@ -24,10 +24,8 @@ for i,(x,y,z) in enumerate(zip(tree.ml_hit_x_mm,tree.ml_hit_y_mm,tree.ml_hit_z_m
 hits.SetMarkerStyle(20);hits.Draw();keep.append(hits)
 canvas.cd(2)
 w,h=int(tree.obs_camera_width),int(tree.obs_camera_height)
-image=ROOT.TH2D('camera','Observed camera counts;pixel x;pixel y',w,-.5,w-.5,h,-.5,h-.5)
-if len(tree.obs_camera_counts)!=w*h: raise SystemExit('Invalid camera shape')
-for y in range(h):
-    for x in range(w): image.SetBinContent(x+1,y+1,tree.obs_camera_counts[y*w+x])
+image=ROOT.TH2D('camera','Camera signal without pedestal (counts);pixel x;pixel y',w,-.5,w-.5,h,-.5,h-.5)
+for x,y,value in zip(tree.obs_camera_ix,tree.obs_camera_iy,tree.obs_camera_signal): image.SetBinContent(x+1,y+1,value)
 image.Draw('COLZ');keep.append(image)
 settings=source.Get('twin_configuration')
 if not settings: raise SystemExit('Missing detector metadata')

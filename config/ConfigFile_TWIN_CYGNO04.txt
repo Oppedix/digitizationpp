@@ -70,7 +70,7 @@
 'alpha_G'               : 0.0209,    # exponential factor or the Gain saturation model
 
 # Background
-'bckg'                  : False,      # True: every record gets one real pedestal frame instead of Gaussian camera noise. Use one config per split
+'bckg'                  : False,      # True: every image gets one real pedestal frame, the only camera noise in TWIN mode. Use one config per split
 'tag'			: 'Data',    # Set 'Data' to download a real pedestal run
 'noiserun'              : '94900;94564;94130',      # one or more pedestal runs separated by ';'. Never put a run in two splits
 'ped_cloud_dir'         : 'LNGS',    # directory inside the cloud bucket where the pedestal run is located
@@ -94,7 +94,7 @@
 'WID'                   : 5,         # Integer parameter: the smaller WID is, the smaller the ram usage but the higher the time consumption
 'Parallel_threads'      : 8,         # Integer parameter: number of threads to use in parallel calculation
 'queue'                 : 0,	     # If you are sending to the CNAF queue write 1. The outputfiles will be forced to be written in local folder to be sent to cloud
-'redpix_output'         : True,       # Signal-only sparse pixels + event_info, no camera images/pedestal noise; output digi_RunXXXXX.root. False saves images.
+'redpix_output'         : True,       # True: digi_RunXXXXX.root only (records, sparse signal). False: also histograms_RunXXXXX.root, the full images (signal + pedestal) the reconstruction reads
 
 'save_expected_lambda'  : True,        # Sparse expected light before the Poisson draw: expected_ix, expected_iy, expected_lambda_e (cluster labels; shared with BATMAN)
 'save_mc_first3_hits'   : False,       # Save first 3 original GEANT hits; generated direction must be joined from MC truth.
@@ -181,8 +181,7 @@
 'twin_gas': 'HeCF4_60_40', # Existing drift model; calibrations remain provisional.
 'twin_gas_pressure_mbar': 'REQUIRED', # Audit; does not rescale existing drift/diffusion calibration.
 'twin_gas_temperature_k': 'REQUIRED',
-'twin_noise_mode': 'synthetic', # Gaussian PMT noise, and Gaussian camera noise when bckg is False.
+'twin_noise_mode': 'synthetic', # Gaussian PMT noise. Camera noise comes only from real pedestals (bckg True).
 'twin_pmt_noise_rms_v': 'REQUIRED',
 'twin_pmt_quantum_efficiency' : 0.15, # R7378 ~15% at 500 nm (arXiv:2510.01646 p.70)
-'twin_camera_noise_rms_counts' : 2.8, # Used only when bckg is False: Quest2 read noise 0.30 e- rms x (1/0.107) counts/e- (datasheet values in the code)
 }

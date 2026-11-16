@@ -56,26 +56,32 @@ int main(int argc,char** argv) {
         }
         return 0;
     }
-    if(mode=="pedcheck") { // bckg=True: observed image = signal + the recorded pedestal frame; same seed, same frame.
-        TFile first(argv[2]),repeat(argv[3]);
+    if(mode=="pedcheck") { // bckg=True, redpix_output=False: image file = signal + the recorded pedestal frame; same seed, same frame.
+        TFile first(argv[2]),repeat(argv[3]),images(argv[4]);
         auto a=first.Get<TTree>("event_info"),b=repeat.Get<TTree>("event_info");
         assert(a && b && a->GetEntries()==5 && b->GetEntries()==5);
         int frame=-2,frame_b=-2,checked=0; bool valid=false;
-        vector<double>* counts=nullptr;vector<double>* signal=nullptr;vector<unsigned>* ix=nullptr;vector<unsigned>* iy=nullptr;
+        vector<double>* signal=nullptr;vector<unsigned>* ix=nullptr;vector<unsigned>* iy=nullptr;
         a->SetBranchAddress("pedestal_frame",&frame);b->SetBranchAddress("pedestal_frame",&frame_b);a->SetBranchAddress("ml_valid",&valid);
-        a->SetBranchAddress("obs_camera_counts",&counts);a->SetBranchAddress("obs_camera_signal",&signal);
+        assert(!a->GetBranch("obs_camera_counts") && !first.Get("pic_run0_ev0")); // no image in the record file
+        for(const char* name:{"redpix_ix","redpix_iy","redpix_iz","expected_ix","expected_iy","expected_lambda_e","eventnumber"})
+            assert(a->GetBranch(name)); // what BATMAN reads stays in the record file
+        a->SetBranchAddress("obs_camera_signal",&signal);
         a->SetBranchAddress("obs_camera_ix",&ix);a->SetBranchAddress("obs_camera_iy",&iy);
         for(int entry=0;entry<5;++entry) {
             a->GetEntry(entry);b->GetEntry(entry);
             assert(frame>=0 && frame<4 && frame==frame_b);
-            if(!valid) continue;
-            vector<double> expected(1024);
+            auto pic=images.Get<TH2I>(("pic_run0_ev"+to_string(entry)).c_str()); // the name the reconstruction reads
+            if(!valid) {assert(!pic);continue;}                                    // a rejected record has no image
+            assert(pic && pic->GetNbinsX()==32 && pic->GetNbinsY()==32);
+            vector<int> expected(1024);
             for(int y=0;y<32;++y) for(int x=0;x<32;++x) expected[y*32+x]=1000*(frame+1)+x+32*y;
-            for(size_t i=0;i<ix->size();++i) expected[(*iy)[i]*32+(*ix)[i]]+=(*signal)[i];
-            assert(*counts==expected); ++checked;
+            for(size_t i=0;i<ix->size();++i) expected[(*iy)[i]*32+(*ix)[i]]+=static_cast<int>((*signal)[i]);
+            for(int y=0;y<32;++y) for(int x=0;x<32;++x) assert(pic->GetBinContent(x+1,y+1)==expected[y*32+x]);
+            ++checked;
         }
         assert(checked==2);
-        a->ResetBranchAddresses();b->ResetBranchAddresses();delete counts;delete signal;delete ix;delete iy;
+        a->ResetBranchAddresses();b->ResetBranchAddresses();delete signal;delete ix;delete iy;
         return 0;
     }
     if(mode=="run") {
@@ -93,9 +99,9 @@ int main(int argc,char** argv) {
             tree->SetBranchAddress("ml_evis_total_keV",&record.evis_total_keV);
         };
         bind(a,r);bind(b,s);bind(c,t);
-        vector<double>* image=nullptr;vector<double>* other=nullptr;vector<double>* changed=nullptr;vector<double>* truth_z=nullptr;
+        vector<double>* image=nullptr;vector<double>* other=nullptr;vector<double>* changed=nullptr;vector<double>* truth_z=nullptr; // image: sparse camera signal; changed: a waveform of the other seed
         string* parent_id=nullptr;string* reason=nullptr;
-        a->SetBranchAddress("ml_hit_z_mm",&truth_z);a->SetBranchAddress("obs_camera_counts",&image);b->SetBranchAddress("obs_camera_counts",&other);c->SetBranchAddress("obs_camera_counts",&changed);
+        a->SetBranchAddress("ml_hit_z_mm",&truth_z);a->SetBranchAddress("obs_camera_signal",&image);b->SetBranchAddress("obs_camera_signal",&other);c->SetBranchAddress("wav_fast_pmt1",&changed);
         a->SetBranchAddress("ml_parent_id",&parent_id);a->SetBranchAddress("ml_reject_reason",&reason);
         vector<int>* light_valid=nullptr;
         a->SetBranchAddress("pmt_signal_valid",&light_valid);
@@ -124,10 +130,10 @@ int main(int argc,char** argv) {
             // A pixel with sampled light must have expected light (same pixel indices as obs_camera_ix/iy).
             set<pair<int,int>> lit;for(size_t i=0;i<eix->size();++i) lit.insert({(*eix)[i],(*eiy)[i]});
             for(size_t i=0;i<six->size();++i) assert(lit.count({(*six)[i],(*siy)[i]}));
-            assert(*image==*other && image->size()==1024);
+            assert(*image==*other);
             for(int i=0;i<8;++i) {assert(fast[i]->size()==1024 && slow[i]->size()==4000);assert(*fast[i]==*fast_b[i] && *slow[i]==*slow_b[i]);}
-            if(entry==0) {assert(r.valid && r.initial_uy==(string(argv[2]).find("/one/")!=string::npos ? -1 : 1) && abs(r.evis_total_keV-(r.primary_pdg==11 ? 4 : 2.8))<1e-10);assert(*image!=*changed);assert(parent_id->find(":7")!=string::npos);}
-            else if(entry==3) {assert(all_of(light_valid->begin(),light_valid->end(),[](int v){return v==0;}));assert(any_of(fast[0]->begin(),fast[0]->end(),[](double v){return v!=0.;}));assert(r.valid && r.evis_total_keV>0 && r.evis_total_keV<1e-8);assert(any_of(image->begin(),image->end(),[](double x){return x!=0.;}));}
+            if(entry==0) {assert(r.valid && r.initial_uy==(string(argv[2]).find("/one/")!=string::npos ? -1 : 1) && abs(r.evis_total_keV-(r.primary_pdg==11 ? 4 : 2.8))<1e-10);assert(*fast[0]!=*changed);assert(parent_id->find(":7")!=string::npos);}
+            else if(entry==3) {assert(all_of(light_valid->begin(),light_valid->end(),[](int v){return v==0;}));assert(any_of(fast[0]->begin(),fast[0]->end(),[](double v){return v!=0.;}));assert(r.valid && r.evis_total_keV>0 && r.evis_total_keV<1e-8);}
             else {if(entry==2) assert(truth_z->size()==3 && any_of(truth_z->begin(),truth_z->end(),[](double z){return z<0 || z>510;}));assert(!r.valid && !reason->empty());for(const auto& wave:fast) assert(all_of(wave->begin(),wave->end(),[](double v){return v==0.;}));}
         }
         a->ResetBranchAddresses();b->ResetBranchAddresses();c->ResetBranchAddresses();
@@ -157,10 +163,10 @@ int main(int argc,char** argv) {
     }
     bool rejected=false;
     try {TwinML::energies({1},{2},{11},{0},{1},1,2);}catch(const invalid_argument&){rejected=true;}assert(rejected);
-    TwinML::Record record;record.seed=123;record.image({{70000.25,0},{1e12,3}},0);
+    TwinML::Record record;record.seed=123;record.image({{70000.25,0},{1e12,3}});
     assert(record.camera_signal[0]==70000.25 && record.camera_signal[1]==1e12);
     assert(record.legacy_sparse_clipped);
-    auto obs=record.camera_counts;record.initial_ux=-1;record.z_centroid_mm=432;record.evis_total_keV=999;record.image({{70000.25,0},{1e12,3}},0);assert(obs==record.camera_counts);
+    auto obs=record.camera_signal;record.initial_ux=-1;record.z_centroid_mm=432;record.evis_total_keV=999;record.image({{70000.25,0},{1e12,3}});assert(obs==record.camera_signal);
     map<string,vector<PMTData>> hits={{"pmt_1",{{1,120},{1,140}}},{"pmt_8",{{1,130}}}};
     TwinML::trigger(hits);assert(hits["pmt_1"][0].arrival_time==0 && hits["pmt_8"][0].arrival_time==10);
     auto shifted=hits;

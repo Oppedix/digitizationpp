@@ -622,20 +622,20 @@ void DigitizationRunner::processRootFiles() {
             // standard:       histograms_RunRRRRR.root (R run number)
             // redpix_ouput:         digi_RunRRRRR.root (R run number)
             if(config.getBool("queue")) fnameoutfolder="./";
-            string fileoutname = "";
-            if(config.getBool("redpix_output")) {
+            const string imagename = Form("%s/histograms_Run%05d.root", fnameoutfolder.c_str(), runCount);
+            // TWIN: records always go to digi_Run; with redpix_output False the images go to histograms_Run.
+            string fileoutname = imagename;
+            if(config.getBool("redpix_output") || twin_mode) {
                 fileoutname= Form("%s/digi_Run%05d.root",
                                   fnameoutfolder.c_str(),
                                   runCount);
-            } else {
-                fileoutname= Form("%s/histograms_Run%05d.root",
-                                  fnameoutfolder.c_str(),
-                                  runCount);
             }
-    
-    
+            unique_ptr<TFile> imagefile;
+            if(twin_mode && !config.getBool("redpix_output")) imagefile.reset(TFile::Open(imagename.c_str(), "RECREATE"));
             auto outfile = shared_ptr<TFile> {TFile::Open(fileoutname.c_str(),
                                                               "RECREATE") };
+            // Images are written to the image file when there is one, otherwise next to the records.
+            auto write_image = [&](TH2I& image) { if(imagefile) imagefile->cd(); image.Write(); outfile->cd(); };
     
             // Saving the parameters of digitization in output file
             SaveValues(outfile);
@@ -965,7 +965,7 @@ void DigitizationRunner::processRootFiles() {
                     outtree->Fill();
                     outfile->cd();
                     if(!config.getBool("redpix_output")) {
-                        final_image.Write();
+                        write_image(final_image);
                     }
                     
                     continue;
@@ -1087,8 +1087,8 @@ void DigitizationRunner::processRootFiles() {
                         if(!placed.drift_contained) throw runtime_error("Full-track drift containment failed: "+parent_id);
                     } catch(const std::exception& error) {
                         ml.reject_reason=error.what();
-                        eventnumber_out=eventnumber;nRedpix=0;
-                        ml.camera_counts.assign(static_cast<size_t>(x_pix)*y_pix,0.);
+                        eventnumber_out=eventnumber;
+                        nRedpix=0;
                         outtree->Fill();continue;
                     }
                     // Render one camera in its local frame; PMT voxels are transformed back below.
@@ -1181,7 +1181,7 @@ void DigitizationRunner::processRootFiles() {
                     std::cerr<<"Warning: DigitizationRunner::processRootFiles: skipping this track because of error from TrackProcessor::computeWithSaturation."<<std::endl;
                     expected_ix.clear();expected_iy.clear();expected_lambda_e.clear(); // a skipped track has no expected light
                     // The reported energy is -1 for those tracks to be recognizable
-                    if(twin_mode) {ml.reject_reason="detector response failed";ml.camera_counts.assign(static_cast<size_t>(x_pix)*y_pix,0.);}
+                    if(twin_mode) ml.reject_reason="detector response failed";
                     energy = -1;
                     TH2I final_image(Form("pic_run%d_ev%d", runCount, entry-start), "",
                                         x_pix, -0.5, x_pix -0.5,
@@ -1199,7 +1199,7 @@ void DigitizationRunner::processRootFiles() {
                     outtree->Fill();
                     outfile->cd();
                     if(!config.getBool("redpix_output")) {
-                        final_image.Write();
+                        write_image(final_image);
                     }
                     
                     continue;
@@ -1280,11 +1280,11 @@ void DigitizationRunner::processRootFiles() {
                 // ========================================================================== //
 
 
-                if(twin_mode) { ml.image(array2d_Nph,config.getDouble("twin_camera_noise_rms_counts"),config.getBool("bckg") ? &background : nullptr); ml.valid=true; }
+                if(twin_mode) { ml.image(array2d_Nph); ml.valid=true; }
                 } catch(const std::exception& error) {
                     if(!twin_mode) throw;
-                    ml.valid=false;ml.reject_reason=string("detector response: ")+error.what();
-                    ml.camera_counts.assign(static_cast<size_t>(x_pix)*y_pix,0.);
+                    ml.valid=false;
+                    ml.reject_reason=string("detector response: ")+error.what();
                     ml.camera_ix.clear();ml.camera_iy.clear();ml.camera_signal.clear();expected_ix.clear();expected_iy.clear();expected_lambda_e.clear();
                     for(int i=0;i<pmt_count;++i) {
                         wav_fast[i].assign(config.getInt("fast_window_len"),0.);
@@ -1377,7 +1377,7 @@ void DigitizationRunner::processRootFiles() {
                 outfile->cd();
                 // DEBUG
                 if(!config.getBool("redpix_output")) {
-                    final_image.Write();
+                    write_image(final_image);
                 }
             }
             //outfile->cd("event_info");
@@ -1389,7 +1389,7 @@ void DigitizationRunner::processRootFiles() {
             // N.B. this is strictly needed if redpix pointers are defines as smart pointers
             outtree->ResetBranchAddresses(); // prevents ROOT from accessing deleted memory
             outtree.reset(); // must destroy before redpix vectors are gone, i.e. before ending of current scope
-            outfile->Close();
+            outfile->Close(); if(imagefile) imagefile->Close();
             
             digipart ++;
             runCount ++;

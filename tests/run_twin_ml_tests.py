@@ -40,7 +40,7 @@ vector<double> SignalSimulation::compute_noise(const vector<double>&,const strin
     settings=ast.literal_eval((repo/'config/ConfigFile_TWIN_CYGNO04.txt').read_text())
     settings.update(twin_geometry_verified=True,twin_source_id='fixture',twin_side='L',
         twin_mc_commit='7464329b3ed8c99e5e4bdaa84762d7d1db57441a',twin_primary_pdg=11,
-        twin_gas_pressure_mbar=900,twin_gas_temperature_k=293.15,twin_detector_seed=123,twin_response_id=0,twin_pmt_quantum_efficiency=.2,twin_pmt_noise_rms_v=.001,twin_camera_noise_rms_counts=1.,
+        twin_gas_pressure_mbar=900,twin_gas_temperature_k=293.15,twin_detector_seed=123,twin_response_id=0,twin_pmt_quantum_efficiency=.2,twin_pmt_noise_rms_v=.001,
         Camera_type='Fusion',x_dim=400,y_dim=400,MC_xaxis='x',MC_yaxis='-y',MC_zaxis='z',x_offset=0,y_offset=0,z_offset=0,
         twin_gem_xmin=-500,twin_gem_xmax=500,twin_gem_ymin=-500,twin_gem_ymax=500,
         pmt_radius=11,dist_gem_pmt=190,Vignetting=False,c_G=5,alpha_G=0,GEM1_HV=100,GEM2_HV=100,GEM3_HV=100,
@@ -76,10 +76,10 @@ vector<double> SignalSimulation::compute_noise(const vector<double>&,const strin
         subprocess.run([str(tmp/'check'),'check',*map(str,paths)],check=True)
     subprocess.run(['python3',str(repo/'tools/inspect_twin_event.py'),str(paths[0]),'--output',str(tmp/'diagnostic.png')],check=True)
     assert (tmp/'diagnostic.png').stat().st_size>0
-    # Real pedestals (bckg=True): a file of 4 frames named after its two runs; the same seed twice.
+    # Real pedestals and image file (bckg=True, redpix_output=False): 4 frames named after their two runs; same seed twice.
     ped=tmp/'peds';ped.mkdir()
     subprocess.run([str(tmp/'check'),'pedestal',str(ped/'pedestals_test_111_222.root'),'unused','unused'],check=True)
-    settings.update(twin_primary_pdg=11,twin_detector_seed=123,bckg=True,noiserun='111;222',
+    settings.update(twin_primary_pdg=11,twin_detector_seed=123,bckg=True,redpix_output=False,noiserun='111;222',
         bckg_path=str(ped)+'/',bckg_name='pedestals_test_111_222.root')
     paths=[]
     for run in ('pedfirst','pedrepeat'):
@@ -90,5 +90,5 @@ vector<double> SignalSimulation::compute_noise(const vector<double>&,const strin
         if result.returncode:
             print(result.stdout);print(result.stderr);result.check_returncode()
         paths.append(next((out/'one').glob('digi_*.root')))
-    subprocess.run([str(tmp/'check'),'pedcheck',str(paths[0]),str(paths[1]),'unused'],check=True)
-    print('PASS: actual runner with synthetic fixtures, rejected/empty records, eight waveforms, same-seed repeat, changed-seed independence, real pedestal frames')
+    subprocess.run([str(tmp/'check'),'pedcheck',str(paths[0]),str(paths[1]),str(paths[0].with_name('histograms_Run00000.root'))],check=True)
+    print('PASS: actual runner with synthetic fixtures, rejected/empty records, eight waveforms, same-seed repeat, changed-seed independence, image file with real pedestal frames')

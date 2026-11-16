@@ -113,8 +113,9 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 | [DigitizationRunner.cxx:1224](../src/DigitizationRunner.cxx#L1224) | PMT photoelectron yield | photons × `photons_per_el` × `twin_pmt_quantum_efficiency`. The standard path keeps upstream's fixed 0.0136 |
 | [DigitizationRunner.cxx:1235](../src/DigitizationRunner.cxx#L1235), [:1253](../src/DigitizationRunner.cxx#L1253), [:1263](../src/DigitizationRunner.cxx#L1263), [TwinML.h:140](../include/TwinML.h#L140) | PMT timing | Drift times keep their sign (no `abs`). Time zero is the first photoelectron on any of the 8 PMTs, not the smallest z |
 | [TwinML.h:134](../include/TwinML.h#L134), [PMTHits.cxx:53](../src/PMTHits.cxx#L53), [PMTSignal.cxx:58](../src/PMTSignal.cxx#L58), [TrackProcessor.cxx:733](../src/TrackProcessor.cxx#L733), [DigitizationRunner.cxx:81](../src/DigitizationRunner.cxx#L81), [:848](../src/DigitizationRunner.cxx#L848) | Reproducibility | Separate named seeds for charge, collection, single-photoelectron pulses and electronics, all derived from the record seed. One thread. Same input and config give bit-identical output |
-| [PMTSignal.cxx:183](../src/PMTSignal.cxx#L183), [TwinML.h:171](../include/TwinML.h#L171) | Noise | PMTs: seeded Gaussian noise, `twin_pmt_noise_rms_v` per sample; no templates are downloaded. Camera: with `bckg: False`, Gaussian noise of `twin_camera_noise_rms_counts` per pixel; with `bckg: True`, one real pedestal frame per record |
-| [DigitizationRunner.cxx:948](../src/DigitizationRunner.cxx#L948), [TwinML.h:186](../include/TwinML.h#L186) | Real pedestals | `bckg: True` uses the pedestal runs of `noiserun` (one or more) through the standard pedestal file. The frame is drawn from the record seed and saved as `pedestal_frame`. The file name must contain every run number, so a file built from other runs is never reused and the pools of different splits stay apart |
+| [PMTSignal.cxx:183](../src/PMTSignal.cxx#L183) | Noise | PMTs: seeded Gaussian noise, `twin_pmt_noise_rms_v` per sample; no templates are downloaded. Camera: no synthetic noise; the only camera noise is the real pedestal frame of `bckg: True` |
+| [DigitizationRunner.cxx:626](../src/DigitizationRunner.cxx#L626), [:638](../src/DigitizationRunner.cxx#L638) | Image file | Records always go to `digi_RunXXXXX.root`. With `redpix_output: False` the full images go to `histograms_RunXXXXX.root`, as integer counts like the standard digitizer's |
+| [DigitizationRunner.cxx:948](../src/DigitizationRunner.cxx#L948), [TwinML.h:182](../include/TwinML.h#L182) | Real pedestals | `bckg: True` uses the pedestal runs of `noiserun` (one or more) through the standard pedestal file. The frame is drawn from the record seed and saved as `pedestal_frame`. The file name must contain every run number, so a file built from other runs is never reused and the pools of different splits stay apart |
 | [TwinML.h:147](../include/TwinML.h#L147), [:158](../include/TwinML.h#L158), [DigitizationRunner.cxx:719](../src/DigitizationRunner.cxx#L719), [:842](../src/DigitizationRunner.cxx#L842) | ML record | One record per MC event: truth (`ml_*`), observables (`obs_*`) and audit branches (§5) |
 | [DigitizationRunner.cxx:467](../src/DigitizationRunner.cxx#L467) | Legacy sparse pixels | `redpix_iz` is capped at 65535 and `ml_legacy_sparse_clipped` is set. Use `obs_camera_*` instead |
 | [DigitizationRunner.cxx:1297](../src/DigitizationRunner.cxx#L1297) | `N_photons` | Written as −1. The upstream integer sum can overflow with decimal counts |
@@ -147,11 +148,18 @@ when `redpix_output: True`, each with the tree `event_info` and the `param_dir` 
 
 With `pmt_mode: False` no PMT branch is written.
 
-### Mode E (TWIN): added to every `event_info` row
+### Mode E (TWIN)
+
+Two files per input file. `digi_RunXXXXX.root` holds the records (tree `event_info`, below) and is the file to keep.
+With `redpix_output: False`, `histograms_RunXXXXX.root` is written too: one image `pic_run<N>_ev<M>` per valid
+record, signal plus the pedestal frame when `bckg: True`, in the format the reconstruction reads. `M` is the
+row of the record in `event_info`. A rejected record has no image.
+
+Added to every `event_info` row:
 
 | Group | Branches | Content |
 |---|---|---|
-| **Model inputs** | `obs_camera_counts`, `obs_camera_width`, `obs_camera_height` | Full camera image of the chosen camera (H × W, flat index y·W + x): signal plus Gaussian noise, or with `bckg: True` signal plus one real pedestal frame (raw counts, pedestal level included) |
+| **Model inputs** | `obs_camera_width`, `obs_camera_height` | Size of the camera image. The image itself is in `histograms_RunXXXXX.root` |
 | | `wav_fast_pmt1..8`, `wav_slow_pmt1..8` | All 8 PMTs, fixed length (`fast_window_len`, `slow_window_len`), in volts |
 | **Signal without noise** | `obs_camera_ix`, `obs_camera_iy`, `obs_camera_signal` | Sparse camera signal before noise, exact (decimal counts) |
 | | `expected_ix`, `expected_iy`, `expected_lambda_e` | Expected photoelectrons per pixel before the Poisson draw (§4.6); truth, not a model input |
@@ -261,8 +269,6 @@ Other sources:
   IFFT), and real CYGNO-MC files. All tests in §10 and the §2 comparison use stubs for these two libraries only.
 * **After the `batman` merge:** the §2 comparison with upstream was not repeated. The standard path draws the
   same Poisson numbers from the same λ, so it is unchanged by construction, not by a new measurement.
-* **Camera storage:** TWIN `obs_camera_counts` stores the full 4096 × 2304 noisy image, about 75 MB per event.
-  It must be made sparse before production.
 * **Calibration gaps:**
   * the TWIN config names the Davide–Melba map `vignette_ORCA_calibrated.root`, which is **not in the repository**:
     it is kept on the CNAF cluster and must be copied by hand into `VignettingMap/` before running. It has not

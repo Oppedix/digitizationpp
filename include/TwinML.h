@@ -101,7 +101,7 @@ inline void configuration(const std::map<std::string,std::string>& options) {
         if(used!=text.size() || !std::isfinite(value)) throw std::invalid_argument("Invalid physical setting: "+key);
         return value;
     };
-    for(const std::string key:{"twin_camera_noise_rms_counts","twin_pmt_noise_rms_v"})
+    for(const std::string key:{"twin_pmt_noise_rms_v"})
         if(number(key)<0) throw std::invalid_argument("Negative noise RMS: "+key);
     for(const std::string key:{"twin_gas_pressure_mbar","twin_gas_temperature_k","ion_pot","drift_field",
         "pmt_gain","pmt_sigma","pmt_lambda","exp_dispersion_scale","transit_time_spread","photons_per_el"})
@@ -153,7 +153,7 @@ struct Record {
     std::vector<unsigned> response_hit_index;
     double z_centroid_mm=0,evis_total_keV=0,initial_ux=0,initial_uy=0,initial_uz=0;
     double primary_energy_MeV=0;
-    std::vector<double> primary_vertex_mm, camera_signal, camera_counts;
+    std::vector<double> primary_vertex_mm, camera_signal;
     std::vector<unsigned> camera_ix,camera_iy;
     void branches(TTree& tree) {
 #define ML_BRANCH(name) tree.Branch("ml_" #name,&name)
@@ -166,20 +166,16 @@ struct Record {
         ML_BRANCH(legacy_sparse_clipped);ML_BRANCH(primary_energy_MeV);ML_BRANCH(primary_vertex_mm);ML_BRANCH(response_hit_index);
 #undef ML_BRANCH
         tree.Branch("obs_camera_ix",&camera_ix);tree.Branch("obs_camera_iy",&camera_iy);
-        tree.Branch("obs_camera_signal",&camera_signal);tree.Branch("obs_camera_counts",&camera_counts);
+        tree.Branch("obs_camera_signal",&camera_signal);
     }
-    void image(const std::vector<std::vector<double>>& signal,double rms,const std::vector<std::vector<int>>* pedestal=nullptr) {
-        std::mt19937 rng(stream(seed,"camera-noise"));std::normal_distribution<double> gaussian(0,1);
-        camera_ix.clear();camera_iy.clear();camera_signal.clear();camera_counts.clear();legacy_sparse_clipped=false;
+    void image(const std::vector<std::vector<double>>& signal) { // sparse signal; the full image goes to the image file
+        camera_ix.clear();camera_iy.clear();camera_signal.clear();legacy_sparse_clipped=false;
         if(signal.empty()) return;
         for(size_t y=0;y<signal[0].size();++y) for(size_t x=0;x<signal.size();++x) {
             const double value=signal[x][y];
             if(!std::isfinite(value) || value<0) throw std::runtime_error("Invalid camera signal");
             if(value>65535.) legacy_sparse_clipped=true;
             if(value!=0) {camera_ix.push_back(x);camera_iy.push_back(y);camera_signal.push_back(value);}
-            const double observed=value+(pedestal ? (*pedestal)[x][y] : rms*gaussian(rng)); // real pedestal frame, or Gaussian noise
-            if(!std::isfinite(observed)) throw std::runtime_error("Nonfinite camera observation");
-            camera_counts.push_back(observed);
         }
     }
 };
