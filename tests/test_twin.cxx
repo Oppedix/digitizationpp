@@ -112,9 +112,9 @@ int main(int argc,char** argv) {
         try {activeDriftRange(bad);} catch(const invalid_argument&) {rejected=true;}
         assert(rejected);
     }
-    auto drift=original_options; drift["max_drift"]="510";            // TWIN needs exactly 0..500 mm
+    auto drift=original_options; drift["min_drift"]="20";             // TWIN needs min_drift = 0
     rejected=false; try {TwinPlacement invalid(drift);} catch(const invalid_argument&) {rejected=true;} assert(rejected);
-    drift.erase("min_drift"); drift["max_drift"]="500";               // omitted min_drift = 0 is accepted
-    TwinPlacement{drift};
-    cout<<"PASS: drift interval defaults, order check, invalid/removed keys, TWIN 0..500 requirement\n";
+    drift.erase("min_drift"); drift["max_drift"]="510";               // omitted min_drift = 0; max_drift is the drift length
+    assert(TwinPlacement{drift}.drift_length==510.);
+    cout<<"PASS: drift interval defaults, order check, invalid/removed keys, TWIN drift length from max_drift\n";
 }

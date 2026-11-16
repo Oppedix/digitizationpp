@@ -88,7 +88,7 @@ Without it the run stops at once with `Vignetting map not found`.
    done
    ```
 
-4. **Side R:** set `twin_side: 'R'`, `MC_xaxis: '-x'`, `MC_zaxis: '-z'`, `z_offset: 501.2`.
+4. **Side R:** set `twin_side: 'R'`, `MC_xaxis: '-x'`, `MC_zaxis: '-z'`; `z_offset` stays 510.03.
 5. **Extra noise replicas** of the same tracks: change `twin_response_id` (or `twin_detector_seed`).
    Camera choice and placement do not change.
 
@@ -101,7 +101,7 @@ TWIN fixes these settings and stops at start-up if any differs:
 | `bckg` | `False` | Camera noise is TWIN's own Gaussian noise; a pedestal would add it twice |
 | `twin_noise_mode` | `synthetic` | Seeded Gaussian camera and PMT noise, no measured-PSD download |
 | `exposure_time_effect` | `False` | Rolling-shutter cuts would remove truth |
-| `min_drift`, `max_drift` | 0, 500 | Every hit must lie in the CYGNO04 drift volume |
+| `min_drift` | 0 | Every hit must lie between the GEM and `max_drift`, the drift length (510 mm for CYGNO04) |
 | `twin_geometry_verified` | `True` | Cameras, PMTs and GEM taken from the CYGNO04 CAD |
 | `twin_gas` | `HeCF4_60_40` | The only gas the drift model supports |
 
@@ -353,8 +353,7 @@ legacy paths with an explicit zero-noise IFFT stub. tests/test_twin.cxx covers
 paired geometry/depth containment and fixed PMTs. `tools/inspect_twin_event.py`
 uses PyROOT to display one event's 3D truth, camera and sixteen waveforms.
 
-Before production: confirm the 500 mm drift interval (reference fiducial gas is
-only 470 mm), validate sensor calibration and
+Before production: validate sensor calibration and
 ideal-trigger assumptions, build with ROOTANA/OpenCV, run real ER/He/C/F MC files,
 inspect all energy/rejection distributions, verify four variants pair completely,
 and repeat outputs on the exact CNAF binary/dependency stack. Synthetic fixtures

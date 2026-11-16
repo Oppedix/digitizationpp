@@ -27,14 +27,14 @@
 
 # Geometry
 'min_drift'             : 0.,        # Response uses deposits with min_drift <= z <= max_drift [mm], z = drift distance from GEM. Rule: 0 <= min_drift < max_drift.
-'max_drift'             : 500.,      # TWIN requires exactly min_drift = 0 and max_drift = 500 mm (CYGNO04 drift).
+'max_drift'             : 510.,      # CYGNO04 drift length [mm]. TWIN requires min_drift = 0 and places every track inside 0..max_drift.
 'MC_xaxis' : 'x', # Side L, CYGNO-MC world frame with /CYGNO/lab/select NoCave (TPC at origin)
 'MC_yaxis' : 'y', # MC y = 80 cm GEM side (CAD z after rotX(-90deg))
-'MC_zaxis' : 'z', # Side L: drift from GEM (MC z=-502.2) toward cathode (z=0). Side R: x->'-x', z->'-z'
+'MC_zaxis' : 'z', # Side L: drift from GEM (MC z=-510.03) toward cathode (z=0). Side R: x->'-x', z->'-z'
 
 'x_offset' : 0., # MC x centred on GEM (CAD x + 470 mm)
 'y_offset' : 0., # MC y centred on GEM
-'z_offset' : 502.2, # Side L innermost GEM foil at MC z=-502.2 mm (cygno_04_v3/GEM.stl); side R: 501.2
+'z_offset' : 510.03, # Sensitive gas ends at MC z=-510.03 mm on side L and +510.03 on side R (CYGNO-MC, fiorotto8 master, nominal detector)
 
 'x_extra'               : 0.,        # Extra distance in x (of digitization ref. frame) from center of the image [mm]
 'y_extra'               : 0.,        # Extra distance in y (of digitization ref. frame) from center of the image [mm]

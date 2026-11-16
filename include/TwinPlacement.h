@@ -16,7 +16,7 @@ struct TwinPlacement {
     struct Result { int camera; double dx, dy, dz, target, actual; bool drift_contained; };
     std::array<Camera,3> cameras;
     std::array<std::array<double,2>,4> depths;
-    double width, height, xmin, xmax, ymin, ymax;
+    double width, height, xmin, xmax, ymin, ymax, drift_length;
     std::uint64_t seed;
     int variant;
     std::string side, source;
@@ -45,8 +45,8 @@ struct TwinPlacement {
         if(v<0 || v>3 || v!=std::floor(v)) throw std::invalid_argument("variant_id must be 0..3");
         variant=static_cast<int>(v);
         const auto drift=activeDriftRange(options);
-        if(drift.first!=0. || drift.second!=500.)
-            throw std::invalid_argument("TWIN requires min_drift=0 and max_drift=500 mm");
+        if(drift.first!=0.) throw std::invalid_argument("TWIN requires min_drift=0");
+        drift_length=drift.second; // every track is placed inside 0..max_drift
         if(number("pmt_number")!=8 || text("pmt_mode")!="True") throw std::invalid_argument("TWIN requires eight enabled PMTs");
         if(text("exposure_time_effect")!="False") throw std::invalid_argument("TWIN requires exposure_time_effect=False to retain truth");
         width=number("x_dim"); height=number("y_dim");
@@ -60,7 +60,7 @@ struct TwinPlacement {
         for(int i=0;i<4;++i) {
             const auto key="twin_depth_"+std::to_string(i);
             depths[i]={number(key+"_min"),number(key+"_max")};
-            if(depths[i][0]<0 || depths[i][1]>500 || depths[i][0]>depths[i][1])
+            if(depths[i][0]<0 || depths[i][1]>drift_length || depths[i][0]>depths[i][1])
                 throw std::invalid_argument("Invalid TWIN depth stratum: "+key);
         }
     }
@@ -112,7 +112,7 @@ struct TwinPlacement {
         std::mt19937_64 depth(hash(key+"|depth|"+std::to_string(variant)));
         const auto range=depths[variant];
         const double target=range[0]+(range[1]-range[0])*uniform(depth), dz=target-weighted/total;
-        const bool contained_z=std::all_of(z.begin(),z.end(),[&](double hit){return hit+dz>=0 && hit+dz<=500;});
+        const bool contained_z=std::all_of(z.begin(),z.end(),[&](double hit){return hit+dz>=0 && hit+dz<=drift_length;});
         if(require_drift_containment && !contained_z)
             throw std::runtime_error("TWIN full-track drift containment failed: "+parent+" variant "+std::to_string(variant));
         double actual=0;

@@ -196,6 +196,6 @@ int main(int argc, char** argv) {
     assert(production.loadConfig(repo+"/config/ConfigFile_CYGNO04_8PMT.txt"));
     assert(PhotonPropagation::validateGeometry(production.getOptions())==8);
     assert(SignalSimulation::noiseTemplateChannels(production.getOptions(),8)==(vector<int>{1,2,3,4,1,2,3,4}));
-    assert(production.get("twin_cygno04_mode").empty() && production.get("min_drift")=="0." && production.get("max_drift")=="500.");
+    assert(production.get("twin_cygno04_mode").empty() && production.get("min_drift")=="0." && production.get("max_drift")=="510.");
     cout << "PASS: CYGNO04 8-PMT template, noise switch and template remapping\n";
 }

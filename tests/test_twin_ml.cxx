@@ -93,7 +93,7 @@ int main(int argc,char** argv) {
             for(int i=0;i<8;++i) {assert(fast[i]->size()==1024 && slow[i]->size()==4000);assert(*fast[i]==*fast_b[i] && *slow[i]==*slow_b[i]);}
             if(entry==0) {assert(r.valid && r.initial_uy==(string(argv[2]).find("/one/")!=string::npos ? -1 : 1) && abs(r.evis_total_keV-(r.primary_pdg==11 ? 4 : 2.8))<1e-10);assert(*image!=*changed);assert(parent_id->find(":7")!=string::npos);}
             else if(entry==3) {assert(all_of(light_valid->begin(),light_valid->end(),[](int v){return v==0;}));assert(any_of(fast[0]->begin(),fast[0]->end(),[](double v){return v!=0.;}));assert(r.valid && r.evis_total_keV>0 && r.evis_total_keV<1e-8);assert(any_of(image->begin(),image->end(),[](double x){return x!=0.;}));}
-            else {if(entry==2) assert(truth_z->size()==3 && any_of(truth_z->begin(),truth_z->end(),[](double z){return z<0 || z>500;}));assert(!r.valid && !reason->empty());for(const auto& wave:fast) assert(all_of(wave->begin(),wave->end(),[](double v){return v==0.;}));}
+            else {if(entry==2) assert(truth_z->size()==3 && any_of(truth_z->begin(),truth_z->end(),[](double z){return z<0 || z>510;}));assert(!r.valid && !reason->empty());for(const auto& wave:fast) assert(all_of(wave->begin(),wave->end(),[](double v){return v==0.;}));}
         }
         a->ResetBranchAddresses();b->ResetBranchAddresses();c->ResetBranchAddresses();
         delete light_valid;delete truth_z;delete image;delete other;delete changed;delete parent_id;delete reason;

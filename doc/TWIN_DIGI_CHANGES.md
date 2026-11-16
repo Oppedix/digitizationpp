@@ -49,9 +49,9 @@ runner and TWIN:
 * **Removed key:** an old `drift_length` key now raises a clear error instead of being silently ignored.
 * **When it runs:** once in the constructor ([DigitizationRunner.cxx:54](../src/DigitizationRunner.cxx#L54)), before any
   output is opened. The interval is applied at [:1154](../src/DigitizationRunner.cxx#L1154)–[:1157](../src/DigitizationRunner.cxx#L1157).
-* **TWIN:** requires exactly 0 and 500 mm ([TwinPlacement.h:47](../include/TwinPlacement.h#L47)).
+* **TWIN:** requires `min_drift: 0`; `max_drift` is the drift length inside which every track is placed, 510 mm in the CYGNO04 configs ([TwinPlacement.h:47](../include/TwinPlacement.h#L47)).
 * **Tests:** [test_twin.cxx:98](../tests/test_twin.cxx#L98) covers the defaults, the shipped values, the swapped and empty
-  intervals, negative/NaN/inf/non-numeric values, `drift_length`, and the TWIN 0–500 requirement.
+  intervals, negative/NaN/inf/non-numeric values, `drift_length`, and the TWIN rules (`min_drift` 0, drift length from `max_drift`).
 * **Configs:** every config states the rule on its `min_drift`/`max_drift` lines
   ([ConfigFile_new.txt:25](../config/ConfigFile_new.txt#L25)–26).
 * Upstream's second commit (`a079ff8`, setSeed revert) changes nothing here; this branch already had that `setSeed`.
@@ -103,7 +103,7 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 
 | Code | What changed | How |
 |---|---|---|
-| [DigitizationRunner.cxx:56](../src/DigitizationRunner.cxx#L56)–57, [TwinPlacement.h:24](../include/TwinPlacement.h#L24)–51, [TwinML.h:91](../include/TwinML.h#L91) | Start-up checks | Verified geometry, every `REQUIRED` key filled, and the fixed settings (8 PMTs, both digitizers, `bckg: False`, synthetic noise, drift 0–500 mm, no exposure effect, versioned build). Any failure stops the run |
+| [DigitizationRunner.cxx:56](../src/DigitizationRunner.cxx#L56)–57, [TwinPlacement.h:24](../include/TwinPlacement.h#L24)–51, [TwinML.h:91](../include/TwinML.h#L91) | Start-up checks | Verified geometry, every `REQUIRED` key filled, and the fixed settings (8 PMTs, both digitizers, `bckg: False`, synthetic noise, `min_drift: 0`, no exposure effect, versioned build). Any failure stops the run |
 | [DigitizationRunner.cxx:509](../src/DigitizationRunner.cxx#L509), [TwinML.h:19](../include/TwinML.h#L19) | Input checks | Every needed MC branch and `tree1` must exist, and event numbers must be unique, before any output is written |
 | [DigitizationRunner.cxx:1052](../src/DigitizationRunner.cxx#L1052) | Light source | The response uses `energyDep_hits_QF` for electron and nuclear recoils alike |
 | [TwinPlacement.h:14](../include/TwinPlacement.h#L14), [:81](../include/TwinPlacement.h#L81) | Track placement | A hash of the parent ID and `twin_master_seed` picks one of 3 cameras and one XY shift that keeps **all** hits inside that camera's view and the GEM (up to 10000 tries). Z is shifted so the energy-weighted centroid reaches the depth band of `variant_id`. Camera and XY are the same for all 4 variants |
@@ -207,13 +207,13 @@ drift-side GEM foil (z > 0 towards the cathode).
 | GEM stack | 3 foils at 2.1 mm pitch; the camera-side foil (GEM3) ends 4.3 mm from the drift-side face of GEM1 | CAD |
 | GEM foil outline | 529 × 829 mm, centred within 1.2 mm of the middle camera axis | CAD |
 | Active GEM | x ∈ ±250, y ∈ ±400 mm | `CYGNUS-RD/geometry` `cygno_04_v3` @ `dbf18a3` |
-| Drift | 500 mm (GEM1 at MC z = −502.2 on side L) | `cygno_04_v3`, CYGNO-MC `g4v11.3_cygno04` @ `7464329` |
+| Drift | 510 mm. The sensitive gas ends 510.03 mm from the cathode plane (MC z = 0) on both sides | CYGNO-MC `fiorotto8/CYGNO-MC` `master` @ `316c09d`, nominal detector. The readout CAD agrees: GEM1 is 510.0 mm from the central plane |
 | Cameras | 3 × ORCA-Quest2 with EHD-25085-C lens (25 mm, f/0.85). Optical axes normal to the GEM at x = 0, **y = +266.7 / 0 / −266.7 mm**. Lens front 666.6 mm from GEM3 | CAD |
 | FOV per camera, TWIN config | 510.77 × 287.31 mm (0.1247 mm/px, measured full-field average), 4096-px axis along x | [FoV scan report](https://fiorotto8.github.io/FoV_Scan/report.html), 655 mm foil–lens distance (TWIN v2 plan §3) |
 | FOV per camera, one-camera 8-PMT config | 532.48 × 299.52 mm (0.130 mm/px), unchanged | [arXiv:2510.01646](https://arxiv.org/abs/2510.01646) p.70 |
 | **PMTs** | 8 × 1-inch tubes (body Ø 26 mm, window radius 11.5 mm). **x = ±150; y = ±133.35, ±400.05 mm; window 505.1 mm from GEM3** (`dist_gem_pmt`) | CAD |
 | `pmt_radius` | 11 mm | R7378A effective photocathode; fits inside the 11.5 mm CAD window |
-| MC → digitizer | `x,y,z`, `z_offset 502.2` (side L, `/CYGNO/lab/select NoCave`). Side R: `-x`, `-z`, 501.2 | `cygno_04_v3` + CYGNO-MC |
+| MC → digitizer | `x,y,z`, `z_offset 510.03` (side L, `/CYGNO/lab/select NoCave`). Side R: `-x`, `-z`, 510.03. In TWIN mode every track is re-placed, so only the axis orientation matters | CYGNO-MC `master` |
 
 **Layout.** The PMTs form two columns at x = ±150 mm. The four rows sit on the camera FOV seams
 (y = ±133.35 mm, half the 266.7 mm camera spacing) and on the outer FOV edges (y = ±400.05 mm, 1.5 × the spacing).
@@ -246,7 +246,7 @@ Other sources:
 * The parent ID is `twin_source_id/<ROOT file UUID>:eventnumber`. The camera and XY draws depend only on the
   parent, the side and `twin_master_seed`; the depth draw also depends on `variant_id`.
 * A shift must keep **all** hits inside the FOV and the GEM; up to 10000 attempts are made. Hits are never
-  removed or truncated. Any hit outside 0–500 mm after the Z move rejects that variant, and the record says why.
+  removed or truncated. Any hit outside 0–`max_drift` after the Z move rejects that variant, and the record says why.
 * `exposure_time_effect` must be `False`. NR-only filtering and the `ion_pot` early exit are bypassed, so
   every parent gives a record.
 
@@ -268,9 +268,9 @@ Other sources:
   * the TWIN PMT trigger is ideal (first photoelectron).
 * **Inherited from upstream:** the PMT acceptance r²h²/(4R⁴) has one extra cos θ compared with the exact
   small-disk solid angle, and photon counts are rounded per voxel.
-* **Not in the readout CAD:** the cathode and field cage. The drift length, `z_offset` and active GEM area come
-  from `cygno_04_v3` and CYGNO-MC. In the CAD, GEM1 lies 510.0 mm from the detector's central plane: if the cathode
-  is on that plane, the drift gap is 510 mm rather than 500.
+* **Not in the readout CAD:** the cathode and field cage. The active GEM area comes from `cygno_04_v3`; the drift
+  length and `z_offset` come from the nominal detector of CYGNO-MC `master`. The GEM position in the v4 CAD
+  file itself has not been read.
 * **Lens aperture:** the TWIN config uses the CAD lens value f/0.85; the one-camera 8-PMT config keeps 0.95
   (LIME value). The camera light factor scales as 1/aperture², so f/0.85 gives 25 % more light; the overall
   scale `A` still needs calibration.
