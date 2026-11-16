@@ -116,11 +116,19 @@ int main(int argc,char** argv) {
         vector<uint16_t>* eix=nullptr;vector<uint16_t>* eiy=nullptr;vector<double>* elam=nullptr;vector<double>* elam_b=nullptr;
         vector<unsigned>* six=nullptr;vector<unsigned>* siy=nullptr;
         int frame=0; a->SetBranchAddress("pedestal_frame",&frame);
+        // Light before/after GEM saturation and expected photoelectrons per PMT.
+        double unsat=0,sat=0,sat_b=0; vector<double>* pe=nullptr;vector<double>* pe_b=nullptr;
+        a->SetBranchAddress("ml_photons_unsaturated",&unsat);a->SetBranchAddress("ml_photons_saturated",&sat);b->SetBranchAddress("ml_photons_saturated",&sat_b);
+        a->SetBranchAddress("ml_pmt_expected_pe",&pe);b->SetBranchAddress("ml_pmt_expected_pe",&pe_b);
         a->SetBranchAddress("expected_ix",&eix);a->SetBranchAddress("expected_iy",&eiy);a->SetBranchAddress("expected_lambda_e",&elam);
         b->SetBranchAddress("expected_lambda_e",&elam_b);a->SetBranchAddress("obs_camera_ix",&six);a->SetBranchAddress("obs_camera_iy",&siy);
         for(int entry=0;entry<5;++entry) {
             a->GetEntry(entry);b->GetEntry(entry);c->GetEntry(entry);
             assert(frame==-1); // no pedestal file in these runs (bckg=False)
+            assert(sat==sat_b && *pe==*pe_b);                          // same seed, same truth
+            if(r.valid) assert(unsat>=sat && sat>=0 && pe->size()==8 && all_of(pe->begin(),pe->end(),[](double v){return v>=0;}));
+            else assert(unsat==0 && sat==0 && pe->empty());            // a rejected record has none
+            if(entry==0) assert(sat>0);                                // a 4 keV track gives avalanche light
             // One positive value per listed pixel, same seed -> same values, nothing for an invalid record.
             assert(eix->size()==elam->size() && eiy->size()==elam->size() && *elam==*elam_b);
             assert(all_of(elam->begin(),elam->end(),[](double v){return v>0;}));
@@ -138,7 +146,7 @@ int main(int argc,char** argv) {
         }
         a->ResetBranchAddresses();b->ResetBranchAddresses();c->ResetBranchAddresses();
         delete light_valid;delete truth_z;delete image;delete other;delete changed;delete parent_id;delete reason;
-        delete eix;delete eiy;delete elam;delete elam_b;delete six;delete siy;
+        delete eix;delete eiy;delete elam;delete elam_b;delete six;delete siy;delete pe;delete pe_b;
         for(auto wave:fast) delete wave;for(auto wave:fast_b) delete wave;for(auto wave:slow) delete wave;for(auto wave:slow_b) delete wave;
         return 0;
     }
@@ -163,6 +171,12 @@ int main(int argc,char** argv) {
     }
     bool rejected=false;
     try {TwinML::energies({1},{2},{11},{0},{1},1,2);}catch(const invalid_argument&){rejected=true;}assert(rejected);
+    { // Light before and after saturation: voxels of 100 and 50 saturated electrons, b = 0.001, A = 1, 0.5 photons per electron.
+        struct Voxel {double n_photons;}; TwinML::Record light;
+        light.light(vector<Voxel>{{100.},{50.}},{{"beta","0.001"},{"xy_vox_scale","1"},{"z_vox_dim","0.1"},{"A","1"},{"photons_per_el","0.5"}});
+        assert(abs(light.photons_saturated-75.)<1e-9);                       // (100 + 50) x 0.5
+        assert(abs(light.photons_unsaturated-(100/0.9+50/0.95)*0.5)<1e-9);   // u = n / (1 - b n / A)
+    }
     TwinML::Record record;record.seed=123;record.image({{70000.25,0},{1e12,3}});
     assert(record.camera_signal[0]==70000.25 && record.camera_signal[1]==1e12);
     assert(record.legacy_sparse_clipped);

@@ -1260,7 +1260,7 @@ void DigitizationRunner::processRootFiles() {
                         // Photon Propagation Step
                         PhotonPropagation propagation(x_coords, y_coords, effective_photons, arrival_times, pmt_options);
                         auto pmt_hits_map = propagation.pmt_hits();
-                        if(twin_mode) TwinML::trigger(pmt_hits_map);
+                        if(twin_mode) { ml.pmt_expected_pe=propagation.expected_hits(); TwinML::trigger(pmt_hits_map); }
                 
                         // Signal Simulation Step
                         SignalSimulation simulator(pmt_hits_map, pmt_options, SOURCE_DIR);
@@ -1280,10 +1280,10 @@ void DigitizationRunner::processRootFiles() {
                 // ========================================================================== //
 
 
-                if(twin_mode) { ml.image(array2d_Nph); ml.valid=true; }
+                if(twin_mode) { ml.image(array2d_Nph); ml.light(pmt_voxels,config.getOptions()); ml.valid=true; }
                 } catch(const std::exception& error) {
                     if(!twin_mode) throw;
-                    ml.valid=false;
+                    ml.valid=false; ml.pmt_expected_pe.clear(); ml.photons_unsaturated=ml.photons_saturated=0;
                     ml.reject_reason=string("detector response: ")+error.what();
                     ml.camera_ix.clear();ml.camera_iy.clear();ml.camera_signal.clear();expected_ix.clear();expected_iy.clear();expected_lambda_e.clear();
                     for(int i=0;i<pmt_count;++i) {

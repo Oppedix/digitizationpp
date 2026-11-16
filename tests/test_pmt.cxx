@@ -58,10 +58,13 @@ int main(int argc, char** argv) {
         PhotonPropagation propagation({0.},{0.},{100000000},{17.},options);
         auto hits=propagation.pmt_hits();
         assert(hits.size()==static_cast<size_t>(count));
+        const auto expected=propagation.expected_hits(); // expected photoelectrons per PMT
+        assert(expected.size()==static_cast<size_t>(count));
         for(int i=1;i<=count;++i) {
             const double dx=(i-1)*50., z=stod(options.at("dist_gem_pmt")), r=stod(options.at("pmt_radius"));
             const double mean=1e8*r*r*z*z/(4*pow(dx*dx+z*z,2));
             assert(abs(hits.at("pmt_"+to_string(i))[0].hits-mean)<8*sqrt(mean));
+            assert(abs(expected[i-1]-mean)<1e-9*mean);
             assert(hits.at("pmt_"+to_string(i))[0].arrival_time==17.);
         }
         assert(PhotonPropagation({0.},{0.},{0},{0.},options).pmt_hits().empty());

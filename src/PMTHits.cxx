@@ -69,20 +69,8 @@ map<string, vector<PMTData>> PhotonPropagation::pmt_hits() {
     map<string, vector<PMTData>> all_hits;
     
     for (size_t i = 0; i < x_0_.size(); ++i) {
-        const double x = x_0_[i];
-        const double y = y_0_[i];
-        const int n_pho = n_photons_[i];
-
         for (int j = 0; j < num_pmts; ++j) {
-            const double dx = pmt_positions[j].first - x;
-            const double dy = pmt_positions[j].second - y;
-            
-            const double R2 = dx*dx + dy*dy + z_pmt_sq;
-            const double R4 = R2 * R2;
-
-            const double mean = n_pho * r_pmt_sq * z_pmt_sq / (4.0 * R4);
-            
-            std::poisson_distribution<int> dist(mean);
+            std::poisson_distribution<int> dist(mean_hits(i, j));
             
             PMTData data;
             data.hits = dist(gen);
@@ -94,4 +82,19 @@ map<string, vector<PMTData>> PhotonPropagation::pmt_hits() {
         }
     }
     return all_hits;
+}
+
+// Mean photoelectrons of voxel i on PMT j: n * r^2 h^2 / (4 R^4), R = distance from the voxel to the PMT.
+double PhotonPropagation::mean_hits(size_t i, int j) const {
+    const double dx = pmt_positions[j].first - x_0_[i];
+    const double dy = pmt_positions[j].second - y_0_[i];
+    const double R2 = dx*dx + dy*dy + z_pmt_sq;
+    return n_photons_[i] * r_pmt_sq * z_pmt_sq / (4.0 * R2 * R2);
+}
+
+vector<double> PhotonPropagation::expected_hits() const {
+    vector<double> expected(num_pmts, 0.);
+    for (size_t i = 0; i < x_0_.size(); ++i)
+        for (int j = 0; j < num_pmts; ++j) expected[j] += mean_hits(i, j);
+    return expected;
 }

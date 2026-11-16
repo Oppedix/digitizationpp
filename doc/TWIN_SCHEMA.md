@@ -226,6 +226,8 @@ geometric theta/phi or first-hit differences as the generated direction.
 | ml_hit_x_mm, ml_hit_y_mm, ml_hit_z_mm | vector<double>[H], mm | Complete original ionization-hit truth |
 | ml_hit_evis_keV, ml_hit_edep_keV | vector<double>[H], keV | Complete visible/raw deposited truth |
 | ml_z_centroid_mm | double scalar, mm | Truth only, weighted by Evis |
+| ml_photons_unsaturated, ml_photons_saturated | double scalars, photons | Truth: avalanche light of the track before and after GEM saturation. Their ratio is the saturation loss |
+| ml_pmt_expected_pe | vector<double>[8], photoelectrons | Truth: expected photoelectrons per PMT, channel 1 first; empty for a rejected record |
 | ml_evis_total_keV | double scalar, keV | Truth only |
 | ml_primary_pdg | int scalar | Training truth, declared generator species |
 | ml_class_nr | bool scalar | Training truth, declared primary is proton/ion |

@@ -153,7 +153,7 @@ struct Record {
     std::vector<unsigned> response_hit_index;
     double z_centroid_mm=0,evis_total_keV=0,initial_ux=0,initial_uy=0,initial_uz=0;
     double primary_energy_MeV=0;
-    std::vector<double> primary_vertex_mm, camera_signal;
+    std::vector<double> primary_vertex_mm, camera_signal, pmt_expected_pe; double photons_unsaturated=0,photons_saturated=0;
     std::vector<unsigned> camera_ix,camera_iy;
     void branches(TTree& tree) {
 #define ML_BRANCH(name) tree.Branch("ml_" #name,&name)
@@ -163,7 +163,7 @@ struct Record {
         ML_BRANCH(z_centroid_mm);ML_BRANCH(evis_total_keV);ML_BRANCH(primary_pdg);ML_BRANCH(class_nr);
         ML_BRANCH(initial_ux);ML_BRANCH(initial_uy);ML_BRANCH(initial_uz);ML_BRANCH(direction_valid);
         ML_BRANCH(response_id);ML_BRANCH(valid);ML_BRANCH(reject_reason);ML_BRANCH(source_file_id);
-        ML_BRANCH(legacy_sparse_clipped);ML_BRANCH(primary_energy_MeV);ML_BRANCH(primary_vertex_mm);ML_BRANCH(response_hit_index);
+        ML_BRANCH(legacy_sparse_clipped);ML_BRANCH(primary_energy_MeV);ML_BRANCH(primary_vertex_mm);ML_BRANCH(response_hit_index);ML_BRANCH(photons_unsaturated);ML_BRANCH(photons_saturated);ML_BRANCH(pmt_expected_pe);
 #undef ML_BRANCH
         tree.Branch("obs_camera_ix",&camera_ix);tree.Branch("obs_camera_iy",&camera_iy);
         tree.Branch("obs_camera_signal",&camera_signal);
@@ -176,6 +176,18 @@ struct Record {
             if(!std::isfinite(value) || value<0) throw std::runtime_error("Invalid camera signal");
             if(value>65535.) legacy_sparse_clipped=true;
             if(value!=0) {camera_ix.push_back(x);camera_iy.push_back(y);camera_signal.push_back(value);}
+        }
+    }
+    // Avalanche light before and after GEM saturation, in photons, summed over the voxels of the track.
+    // Each voxel stores its saturated charge n = u/(1 + b*u/A), so its unsaturated charge is u = n/(1 - b*n/A),
+    // with b the saturation parameter of one voxel. `voxels` is the list of PMTVoxel filled by the renderer.
+    template<class Voxels> void light(const Voxels& voxels,const std::map<std::string,std::string>& options) {
+        auto number=[&](const std::string& key) { return std::stod(options.at(key)); };
+        const double b=number("beta")*std::pow(number("xy_vox_scale"),2)*0.1/number("z_vox_dim");
+        photons_unsaturated=photons_saturated=0;
+        for(const auto& voxel:voxels) {
+            photons_saturated+=voxel.n_photons*number("photons_per_el");
+            photons_unsaturated+=voxel.n_photons/(1.-b*voxel.n_photons/number("A"))*number("photons_per_el");
         }
     }
 };

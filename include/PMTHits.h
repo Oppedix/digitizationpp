@@ -68,8 +68,11 @@ public:
      * @return A nested map structure: voxel_id -> pmt_name -> PMTData.
      */
     map<string, vector<PMTData>> pmt_hits();
+    /** Expected photoelectrons per PMT: for each PMT, the sum over voxels of the Poisson means used by pmt_hits(). */
+    vector<double> expected_hits() const;
 
 private:
+    double mean_hits(size_t voxel, int pmt) const; /**< Mean photoelectrons of one voxel on one PMT. */
     // --- Input Data ---
     vector<double> x_0_;           /**< X coordinates of voxels. */
     vector<double> y_0_;           /**< Y coordinates of voxels. */
