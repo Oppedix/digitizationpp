@@ -97,13 +97,14 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 |---|---|---|
 | [DigitizationRunner.cxx:893](../src/DigitizationRunner.cxx#L893) | `particle_type` of an event without hits | Written as 0. Upstream read the first element of an empty list (undefined behaviour) |
 | [DigitizationRunner.cxx:292](../src/DigitizationRunner.cxx#L292) | Missing vignetting map | The run stops with `Vignetting map not found` and the path. Upstream used the unopened file (crash) |
+| [DigitizationRunner.cxx:329](../src/DigitizationRunner.cxx#L329) | Reading a pedestal frame | It no longer changes the directory the output is written to. Before, a file whose last event was skipped lost its whole `event_info` tree |
 | [DigitizationRunner.cxx:237](../src/DigitizationRunner.cxx#L237) | Text settings in `param_dir` | Text-valued keys (`pmt_noise_channels`, `twin_*` names) are skipped when the config is saved as numbers |
 
 ### 4.5 TWIN mode (`twin_cygno04_mode: True` only)
 
 | Code | What changed | How |
 |---|---|---|
-| [DigitizationRunner.cxx:56](../src/DigitizationRunner.cxx#L56)–57, [TwinPlacement.h:24](../include/TwinPlacement.h#L24)–51, [TwinML.h:91](../include/TwinML.h#L91) | Start-up checks | Verified geometry, every `REQUIRED` key filled, and the fixed settings (8 PMTs, both digitizers, `bckg: False`, synthetic noise, `min_drift: 0`, no exposure effect, versioned build). Any failure stops the run |
+| [DigitizationRunner.cxx:56](../src/DigitizationRunner.cxx#L56)–57, [TwinPlacement.h:24](../include/TwinPlacement.h#L24)–51, [TwinML.h:91](../include/TwinML.h#L91) | Start-up checks | Verified geometry, every `REQUIRED` key filled, and the fixed settings (8 PMTs, both digitizers, synthetic PMT noise, `min_drift: 0`, no exposure effect; with `bckg: True`, a pedestal file named after its runs, versioned build). Any failure stops the run |
 | [DigitizationRunner.cxx:509](../src/DigitizationRunner.cxx#L509), [TwinML.h:19](../include/TwinML.h#L19) | Input checks | Every needed MC branch and `tree1` must exist, and event numbers must be unique, before any output is written |
 | [DigitizationRunner.cxx:1052](../src/DigitizationRunner.cxx#L1052) | Light source | The response uses `energyDep_hits_QF` for electron and nuclear recoils alike |
 | [TwinPlacement.h:14](../include/TwinPlacement.h#L14), [:81](../include/TwinPlacement.h#L81) | Track placement | A hash of the parent ID and `twin_master_seed` picks one of 3 cameras and one XY shift that keeps **all** hits inside that camera's view and the GEM (up to 10000 tries). Z gets one uniform shift over the range that keeps the whole track between the GEM and `max_drift`; with `twin_depth_mm` the energy-weighted centroid is put at that depth instead. Another `variant_id` gives another depth draw with the same camera and XY |
@@ -112,7 +113,8 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 | [DigitizationRunner.cxx:1224](../src/DigitizationRunner.cxx#L1224) | PMT photoelectron yield | photons × `photons_per_el` × `twin_pmt_quantum_efficiency`. The standard path keeps upstream's fixed 0.0136 |
 | [DigitizationRunner.cxx:1235](../src/DigitizationRunner.cxx#L1235), [:1253](../src/DigitizationRunner.cxx#L1253), [:1263](../src/DigitizationRunner.cxx#L1263), [TwinML.h:140](../include/TwinML.h#L140) | PMT timing | Drift times keep their sign (no `abs`). Time zero is the first photoelectron on any of the 8 PMTs, not the smallest z |
 | [TwinML.h:134](../include/TwinML.h#L134), [PMTHits.cxx:53](../src/PMTHits.cxx#L53), [PMTSignal.cxx:58](../src/PMTSignal.cxx#L58), [TrackProcessor.cxx:733](../src/TrackProcessor.cxx#L733), [DigitizationRunner.cxx:81](../src/DigitizationRunner.cxx#L81), [:848](../src/DigitizationRunner.cxx#L848) | Reproducibility | Separate named seeds for charge, collection, single-photoelectron pulses and electronics, all derived from the record seed. One thread. Same input and config give bit-identical output |
-| [PMTSignal.cxx:183](../src/PMTSignal.cxx#L183), [TwinML.h:171](../include/TwinML.h#L171) | Synthetic noise | Seeded Gaussian noise: `twin_pmt_noise_rms_v` per PMT sample, `twin_camera_noise_rms_counts` per camera pixel. No templates are downloaded |
+| [PMTSignal.cxx:183](../src/PMTSignal.cxx#L183), [TwinML.h:171](../include/TwinML.h#L171) | Noise | PMTs: seeded Gaussian noise, `twin_pmt_noise_rms_v` per sample; no templates are downloaded. Camera: with `bckg: False`, Gaussian noise of `twin_camera_noise_rms_counts` per pixel; with `bckg: True`, one real pedestal frame per record |
+| [DigitizationRunner.cxx:948](../src/DigitizationRunner.cxx#L948), [TwinML.h:186](../include/TwinML.h#L186) | Real pedestals | `bckg: True` uses the pedestal runs of `noiserun` (one or more) through the standard pedestal file. The frame is drawn from the record seed and saved as `pedestal_frame`. The file name must contain every run number, so a file built from other runs is never reused and the pools of different splits stay apart |
 | [TwinML.h:147](../include/TwinML.h#L147), [:158](../include/TwinML.h#L158), [DigitizationRunner.cxx:719](../src/DigitizationRunner.cxx#L719), [:842](../src/DigitizationRunner.cxx#L842) | ML record | One record per MC event: truth (`ml_*`), observables (`obs_*`) and audit branches (§5) |
 | [DigitizationRunner.cxx:467](../src/DigitizationRunner.cxx#L467) | Legacy sparse pixels | `redpix_iz` is capped at 65535 and `ml_legacy_sparse_clipped` is set. Use `obs_camera_*` instead |
 | [DigitizationRunner.cxx:1297](../src/DigitizationRunner.cxx#L1297) | `N_photons` | Written as −1. The upstream integer sum can overflow with decimal counts |
@@ -149,7 +151,7 @@ With `pmt_mode: False` no PMT branch is written.
 
 | Group | Branches | Content |
 |---|---|---|
-| **Model inputs** | `obs_camera_counts`, `obs_camera_width`, `obs_camera_height` | Full noisy camera image of the chosen camera (H × W, flat index y·W + x) |
+| **Model inputs** | `obs_camera_counts`, `obs_camera_width`, `obs_camera_height` | Full camera image of the chosen camera (H × W, flat index y·W + x): signal plus Gaussian noise, or with `bckg: True` signal plus one real pedestal frame (raw counts, pedestal level included) |
 | | `wav_fast_pmt1..8`, `wav_slow_pmt1..8` | All 8 PMTs, fixed length (`fast_window_len`, `slow_window_len`), in volts |
 | **Signal without noise** | `obs_camera_ix`, `obs_camera_iy`, `obs_camera_signal` | Sparse camera signal before noise, exact (decimal counts) |
 | | `expected_ix`, `expected_iy`, `expected_lambda_e` | Expected photoelectrons per pixel before the Poisson draw (§4.6); truth, not a model input |
@@ -159,7 +161,7 @@ With `pmt_mode: False` no PMT branch is written.
 | | `ml_primary_pdg`, `ml_class_nr`, `ml_evis_total_keV`, `ml_z_centroid_mm` | Particle, NR/ER class, visible energy, depth |
 | | `ml_parent_id`, `ml_variant_id`, `ml_response_id`, `ml_seed`, `ml_camera_id`, `ml_side_id`, `ml_placement_xyz_mm`, `ml_source_file_id` | Track identity and placement |
 | | `ml_valid`, `ml_reject_reason`, `ml_response_hit_index`, `ml_legacy_sparse_clipped`, `ml_schema_version` | Quality and audit |
-| **Audit** | `camera_id`, `selected_side`, `parent_id`, `variant_id`, `target_depth_mm`, `actual_depth_mm`, `visible_ionization_weights`, `source_x/y/z`, `source_px/py/pz` | Placement inputs and the original MC hits |
+| **Audit** | `camera_id`, `selected_side`, `parent_id`, `variant_id`, `pedestal_frame`, `target_depth_mm`, `actual_depth_mm`, `visible_ionization_weights`, `source_x/y/z`, `source_px/py/pz` | Placement inputs and the original MC hits |
 
 All upstream `event_info` branches are still written, with `N_photons = −1` and `redpix_iz` capped (§4.5).
 
@@ -279,7 +281,10 @@ Other sources:
 * **Lens aperture:** the TWIN config uses the CAD lens value f/0.85; the one-camera 8-PMT config keeps 0.95
   (LIME value). The camera light factor scales as 1/aperture², so f/0.85 gives 25 % more light; the overall
   scale `A` still needs calibration.
-* **Pedestals with Quest2:** `bckg: True` needs Quest2 pedestal runs. The code stops on a Fusion/Quest mismatch.
+* **Pedestals:** `bckg: True` needs pedestal runs of the same camera; the code stops on a Fusion/Quest mismatch.
+  Building the pedestal file from MIDAS runs needs ROOTANA and has not been run here: the tests read a
+  ready-made pedestal file. A record does not say which run its frame came from, only the frame index in the
+  file; the runs of the file are in `param_dir/pedestal_runs`.
 
 ## 10. Tests
 

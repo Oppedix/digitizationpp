@@ -107,7 +107,7 @@ inline void configuration(const std::map<std::string,std::string>& options) {
         "pmt_gain","pmt_sigma","pmt_lambda","exp_dispersion_scale","transit_time_spread","photons_per_el"})
         if(number(key)<=0) throw std::invalid_argument("Nonpositive physical setting: "+key);
     if(required("twin_noise_mode")!="synthetic") throw std::invalid_argument("TWIN ML requires explicit offline synthetic noise");
-    if(required("bckg")!="False") throw std::invalid_argument("TWIN ML camera noise replaces bckg; set bckg=False");
+    if(required("bckg")!="False" && required("bckg")!="True") throw std::invalid_argument("bckg must be True or False");
     if(required("digitizers")!="Both") throw std::invalid_argument("TWIN ML requires both digitizers");
     if(required("twin_gas")!="HeCF4_60_40") throw std::invalid_argument("Current drift model supports HeCF4_60_40 only");
     const double qe=number("twin_pmt_quantum_efficiency");
@@ -168,7 +168,7 @@ struct Record {
         tree.Branch("obs_camera_ix",&camera_ix);tree.Branch("obs_camera_iy",&camera_iy);
         tree.Branch("obs_camera_signal",&camera_signal);tree.Branch("obs_camera_counts",&camera_counts);
     }
-    void image(const std::vector<std::vector<double>>& signal,double rms) {
+    void image(const std::vector<std::vector<double>>& signal,double rms,const std::vector<std::vector<int>>* pedestal=nullptr) {
         std::mt19937 rng(stream(seed,"camera-noise"));std::normal_distribution<double> gaussian(0,1);
         camera_ix.clear();camera_iy.clear();camera_signal.clear();camera_counts.clear();legacy_sparse_clipped=false;
         if(signal.empty()) return;
@@ -177,10 +177,29 @@ struct Record {
             if(!std::isfinite(value) || value<0) throw std::runtime_error("Invalid camera signal");
             if(value>65535.) legacy_sparse_clipped=true;
             if(value!=0) {camera_ix.push_back(x);camera_iy.push_back(y);camera_signal.push_back(value);}
-            const double observed=value+rms*gaussian(rng);
+            const double observed=value+(pedestal ? (*pedestal)[x][y] : rms*gaussian(rng)); // real pedestal frame, or Gaussian noise
             if(!std::isfinite(observed)) throw std::runtime_error("Nonfinite camera observation");
             camera_counts.push_back(observed);
         }
     }
 };
+// Real camera pedestals (bckg: True), from one or more runs as in the standard digitizer ('noiserun').
+// The pedestal file name must contain every run number: a file built from other runs is then never
+// reused by mistake, and the pools of different splits stay in different files.
+inline void pedestals(const std::map<std::string,std::string>& options) {
+    auto text=[&](const std::string& key) { auto it=options.find(key); return it==options.end() ? std::string() : it->second; };
+    if(text("bckg")!="True") return;
+    if(text("random_ped")!="-1") throw std::invalid_argument("TWIN with bckg=True requires random_ped=-1: one random frame per record");
+    const std::string runs=text("noiserun"); size_t start=0, count=0;
+    while(start<runs.size()) {
+        const size_t end=std::min(runs.find(';',start),runs.size());
+        const std::string run=runs.substr(start,end-start);
+        if(run.empty() || run.find_first_not_of("0123456789")!=std::string::npos)
+            throw std::invalid_argument("noiserun must be pedestal run numbers separated by ';'");
+        if(text("bckg_name").find(run)==std::string::npos)
+            throw std::invalid_argument("TWIN with bckg=True: bckg_name must contain every run number of noiserun (missing "+run+")");
+        ++count; start=end+1;
+    }
+    if(count==0) throw std::invalid_argument("TWIN with bckg=True requires at least one pedestal run in noiserun");
+}
 }

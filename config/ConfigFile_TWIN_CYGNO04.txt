@@ -70,13 +70,13 @@
 'alpha_G'               : 0.0209,    # exponential factor or the Gain saturation model
 
 # Background
-'bckg'                  : False,      # if 'True' background is added
+'bckg'                  : False,      # True: every record gets one real pedestal frame instead of Gaussian camera noise. Use one config per split
 'tag'			: 'Data',    # Set 'Data' to download a real pedestal run
-'noiserun'              : '94900;94564;94130',      # pedestal runs to add as background separated by ';'
+'noiserun'              : '94900;94564;94130',      # one or more pedestal runs separated by ';'. Never put a run in two splits
 'ped_cloud_dir'         : 'LNGS',    # directory inside the cloud bucket where the pedestal run is located
 'bckg_path'		: './tmp/', # set path to pedestal run, or leave it black if you want to download it
-'bckg_name'     	: 'mypeds.root', # set name of the .root file containing the pedestals
-'random_ped'            : -1, # if -1 then the pedestal is randomly extracted from the 'bckg_name' file, else put here which fixed event of the 'bckg_name' file you want to use
+'bckg_name'     	: 'mypeds.root', # pedestal file. With bckg True its name must contain every run of noiserun, e.g. 'pedestals_train_94900_94564.root'
+'random_ped'            : -1, # -1: one random frame of the pedestal file per record (required with bckg True); the frame used is saved as pedestal_frame
 'start_event'		: 0,         # index of the first event to digitize
 
 # Vignetting
@@ -181,8 +181,8 @@
 'twin_gas': 'HeCF4_60_40', # Existing drift model; calibrations remain provisional.
 'twin_gas_pressure_mbar': 'REQUIRED', # Audit; does not rescale existing drift/diffusion calibration.
 'twin_gas_temperature_k': 'REQUIRED',
-'twin_noise_mode': 'synthetic', # Offline provisional independent Gaussian sensor noise.
+'twin_noise_mode': 'synthetic', # Gaussian PMT noise, and Gaussian camera noise when bckg is False.
 'twin_pmt_noise_rms_v': 'REQUIRED',
 'twin_pmt_quantum_efficiency' : 0.15, # R7378 ~15% at 500 nm (arXiv:2510.01646 p.70)
-'twin_camera_noise_rms_counts' : 2.8, # Quest2 read noise 0.30 e- rms x (1/0.107) counts/e- (datasheet values in the code); no pedestal map
+'twin_camera_noise_rms_counts' : 2.8, # Used only when bckg is False: Quest2 read noise 0.30 e- rms x (1/0.107) counts/e- (datasheet values in the code)
 }

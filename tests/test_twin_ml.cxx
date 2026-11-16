@@ -3,6 +3,7 @@
 #include "DigitizationRunner.h"
 #include "Utils.h"
 #include "TFile.h"
+#include "TH2I.h"
 #include <cassert>
 #include <fstream>
 using namespace std;
@@ -46,6 +47,37 @@ void fixture(const string& name) {
 int main(int argc,char** argv) {
     assert(argc==5);const string mode=argv[1];
     if(mode=="fixture") {fixture(argv[2]);if(string(argv[3])!="unused") fixture(argv[3]);return 0;}
+    if(mode=="pedestal") { // Four 32x32 pedestal frames; every pixel of every frame has its own value.
+        TFile f(argv[2],"RECREATE");
+        for(int k=0;k<4;++k) {
+            TH2I pic(("pic_"+to_string(k)).c_str(),"",32,-0.5,31.5,32,-0.5,31.5);
+            for(int i=0;i<32;++i) for(int j=0;j<32;++j) pic.SetBinContent(i+1,j+1,1000*(k+1)+i+32*j);
+            pic.Write();
+        }
+        return 0;
+    }
+    if(mode=="pedcheck") { // bckg=True: observed image = signal + the recorded pedestal frame; same seed, same frame.
+        TFile first(argv[2]),repeat(argv[3]);
+        auto a=first.Get<TTree>("event_info"),b=repeat.Get<TTree>("event_info");
+        assert(a && b && a->GetEntries()==5 && b->GetEntries()==5);
+        int frame=-2,frame_b=-2,checked=0; bool valid=false;
+        vector<double>* counts=nullptr;vector<double>* signal=nullptr;vector<unsigned>* ix=nullptr;vector<unsigned>* iy=nullptr;
+        a->SetBranchAddress("pedestal_frame",&frame);b->SetBranchAddress("pedestal_frame",&frame_b);a->SetBranchAddress("ml_valid",&valid);
+        a->SetBranchAddress("obs_camera_counts",&counts);a->SetBranchAddress("obs_camera_signal",&signal);
+        a->SetBranchAddress("obs_camera_ix",&ix);a->SetBranchAddress("obs_camera_iy",&iy);
+        for(int entry=0;entry<5;++entry) {
+            a->GetEntry(entry);b->GetEntry(entry);
+            assert(frame>=0 && frame<4 && frame==frame_b);
+            if(!valid) continue;
+            vector<double> expected(1024);
+            for(int y=0;y<32;++y) for(int x=0;x<32;++x) expected[y*32+x]=1000*(frame+1)+x+32*y;
+            for(size_t i=0;i<ix->size();++i) expected[(*iy)[i]*32+(*ix)[i]]+=(*signal)[i];
+            assert(*counts==expected); ++checked;
+        }
+        assert(checked==2);
+        a->ResetBranchAddresses();b->ResetBranchAddresses();delete counts;delete signal;delete ix;delete iy;
+        return 0;
+    }
     if(mode=="run") {
         DigitizationRunner runner(argv[2],argv[3],argv[4]);
         x_pix=y_pix=32; // Test-only small camera, same production renderer.
@@ -77,10 +109,12 @@ int main(int argc,char** argv) {
         // Expected light (save_expected_lambda): pixel list and expected photoelectrons before the Poisson draw.
         vector<uint16_t>* eix=nullptr;vector<uint16_t>* eiy=nullptr;vector<double>* elam=nullptr;vector<double>* elam_b=nullptr;
         vector<unsigned>* six=nullptr;vector<unsigned>* siy=nullptr;
+        int frame=0; a->SetBranchAddress("pedestal_frame",&frame);
         a->SetBranchAddress("expected_ix",&eix);a->SetBranchAddress("expected_iy",&eiy);a->SetBranchAddress("expected_lambda_e",&elam);
         b->SetBranchAddress("expected_lambda_e",&elam_b);a->SetBranchAddress("obs_camera_ix",&six);a->SetBranchAddress("obs_camera_iy",&siy);
         for(int entry=0;entry<5;++entry) {
             a->GetEntry(entry);b->GetEntry(entry);c->GetEntry(entry);
+            assert(frame==-1); // no pedestal file in these runs (bckg=False)
             // One positive value per listed pixel, same seed -> same values, nothing for an invalid record.
             assert(eix->size()==elam->size() && eiy->size()==elam->size() && *elam==*elam_b);
             assert(all_of(elam->begin(),elam->end(),[](double v){return v>0;}));
@@ -103,6 +137,14 @@ int main(int argc,char** argv) {
         return 0;
     }
     assert(mode=="unit");
+    { // Real pedestals: the file name must contain every run of noiserun; one random frame per record.
+        const map<string,string> ped={{"bckg","True"},{"noiserun","111;222"},{"bckg_name","pedestals_train_111_222.root"},{"random_ped","-1"}};
+        TwinML::pedestals(ped); TwinML::pedestals({{"bckg","False"}});
+        for(const auto& [key,bad]:vector<pair<string,string>>{{"bckg_name","pedestals_train_111.root"},{"noiserun",""},{"noiserun","111;abc"},{"random_ped","3"}}) {
+            auto wrong=ped; wrong[key]=bad; bool refused=false;
+            try {TwinML::pedestals(wrong);}catch(const invalid_argument&){refused=true;}assert(refused);
+        }
+    }
     // drift_velocity key [cm/us]: absent -> table (4.06 + 0.9*(6.12-4.06) = 5.914 at 0.95 kV/cm); set -> that value.
     assert(fabs(Utils::drift_velocity("",0.95)-5.914)<1e-9 && Utils::drift_velocity("6.25305",0.95)==6.25305);
     for(const string bad:{"0","-1","nan","fast","6.2x"}) {

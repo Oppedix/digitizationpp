@@ -54,7 +54,7 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
     activeDriftRange(config.getOptions()); // fail before any output or download
     if (config.getBool("twin_cygno04_mode")) {
         TwinPlacement{config.getOptions()};
-        TwinML::configuration(config.getOptions());
+        TwinML::configuration(config.getOptions()); TwinML::pedestals(config.getOptions());
     }
     if (config.getBool("pmt_mode")) {
         PhotonPropagation::validateGeometry(config.getOptions());
@@ -325,8 +325,8 @@ int DigitizationRunner::is_NR(vector<int> pdgID_hits, int pdg) {
 }
 
 
-void DigitizationRunner::AddBckg(std::vector<std::vector<int>>& background) {
-        
+int DigitizationRunner::AddBckg(std::vector<std::vector<int>>& background) {
+    TDirectory::TContext keep_directory; // opening the pedestal file must not change where the output is written
     string tmpfolder = config.get("bckg_path");
     string tmpname   = config.get("bckg_name");
     
@@ -394,7 +394,7 @@ void DigitizationRunner::AddBckg(std::vector<std::vector<int>>& background) {
         }
     }
     
-    return;
+    return pic_index;
 }
 
 void DigitizationRunner::addPedsToParamDir(shared_ptr<TFile>& outfile) {
@@ -702,7 +702,7 @@ void DigitizationRunner::processRootFiles() {
             std::vector<double> expected_lambda_e;
             
             TwinML::Record ml; // Storage precedes the TTree and survives every Fill.
-            int camera_id=-1, variant_id=twin_mode ? twin->variant : -1;
+            int camera_id=-1, variant_id=twin_mode ? twin->variant : -1, pedestal_frame=-1;
             string selected_side=twin_mode ? twin->side : "", parent_id;
             double target_depth=-1, actual_depth=-1;
             vector<double> twin_weights;
@@ -723,7 +723,7 @@ void DigitizationRunner::processRootFiles() {
                 outtree->Branch("camera_id", &camera_id);
                 outtree->Branch("selected_side", &selected_side);
                 outtree->Branch("parent_id", &parent_id);
-                outtree->Branch("variant_id", &variant_id);
+                outtree->Branch("variant_id", &variant_id); outtree->Branch("pedestal_frame", &pedestal_frame);
                 outtree->Branch("target_depth_mm", &target_depth);
                 outtree->Branch("actual_depth_mm", &actual_depth);
                 outtree->Branch("visible_ionization_weights", &twin_weights);
@@ -943,9 +943,9 @@ void DigitizationRunner::processRootFiles() {
                 vector<vector<int>> background(x_pix,
                                                 vector<int>(y_pix, 0)); 
                 
-                if(config.getBool("bckg")) {
-                    AddBckg(background);
-                }
+                // Frame of the pedestal file added to this event (-1: no pedestal). In TWIN mode the draw
+                // follows the record seed, so the same seed gives the same frame.
+                pedestal_frame = config.getBool("bckg") ? AddBckg(background) : -1;
       
                 if (!twin_mode && energy < config.getDouble("ion_pot")){
                     energy = 0;
@@ -1280,7 +1280,7 @@ void DigitizationRunner::processRootFiles() {
                 // ========================================================================== //
 
 
-                if(twin_mode) { ml.image(array2d_Nph,config.getDouble("twin_camera_noise_rms_counts")); ml.valid=true; }
+                if(twin_mode) { ml.image(array2d_Nph,config.getDouble("twin_camera_noise_rms_counts"),config.getBool("bckg") ? &background : nullptr); ml.valid=true; }
                 } catch(const std::exception& error) {
                     if(!twin_mode) throw;
                     ml.valid=false;ml.reject_reason=string("detector response: ")+error.what();

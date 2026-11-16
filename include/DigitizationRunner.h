@@ -141,8 +141,9 @@ private:
      /**
       * @brief Adds pedestal to an image, according the configfile options.
       * @param[in] background Reference to 2D image matrix that will contain the pedestal.
+      * @return Index of the pedestal frame used (pic_<index> of the pedestal file).
       */
-     void AddBckg(std::vector<std::vector<int>>& background);
+     int AddBckg(std::vector<std::vector<int>>& background);
 
      /**
      * @brief Adds pedestal histograms to the "param_dir" directory of the output ROOT file.
