@@ -15,7 +15,7 @@ struct TwinPlacement {
     struct Camera { double x, y, angle; };
     struct Result { int camera; double dx, dy, dz, target, actual; bool drift_contained; };
     std::array<Camera,3> cameras;
-    std::array<std::array<double,2>,4> depths;
+    double fixed_depth; // NaN: one uniform depth per parent. A number: depth of the charge centroid [mm]
     double width, height, xmin, xmax, ymin, ymax, drift_length;
     std::uint64_t seed;
     int variant;
@@ -42,7 +42,7 @@ struct TwinPlacement {
             throw std::invalid_argument("twin_master_seed must be an unsigned integer");
         seed=std::stoull(seed_text,&used);
         const double v=number("variant_id");
-        if(v<0 || v>3 || v!=std::floor(v)) throw std::invalid_argument("variant_id must be 0..3");
+        if(v<0 || v!=std::floor(v)) throw std::invalid_argument("variant_id must be a non-negative integer");
         variant=static_cast<int>(v);
         const auto drift=activeDriftRange(options);
         if(drift.first!=0.) throw std::invalid_argument("TWIN requires min_drift=0");
@@ -57,11 +57,11 @@ struct TwinPlacement {
             const auto key="twin_camera_"+std::to_string(i);
             cameras[i]={number(key+"_x"),number(key+"_y"),number(key+"_angle_rad")};
         }
-        for(int i=0;i<4;++i) {
-            const auto key="twin_depth_"+std::to_string(i);
-            depths[i]={number(key+"_min"),number(key+"_max")};
-            if(depths[i][0]<0 || depths[i][1]>drift_length || depths[i][0]>depths[i][1])
-                throw std::invalid_argument("Invalid TWIN depth stratum: "+key);
+        fixed_depth=NAN; // optional key 'twin_depth_mm': fixed depth for the diagnostic set
+        if(options.count("twin_depth_mm")) {
+            fixed_depth=number("twin_depth_mm");
+            if(fixed_depth<0 || fixed_depth>drift_length)
+                throw std::invalid_argument("twin_depth_mm must lie between 0 and max_drift");
         }
     }
     static std::uint64_t hash(const std::string& key) {
@@ -110,9 +110,15 @@ struct TwinPlacement {
         }
         if(!contained) throw std::runtime_error("TWIN camera/GEM placement failed after 10000 trials: "+parent);
         std::mt19937_64 depth(hash(key+"|depth|"+std::to_string(variant)));
-        const auto range=depths[variant];
-        const double target=range[0]+(range[1]-range[0])*uniform(depth), dz=target-weighted/total;
-        const bool contained_z=std::all_of(z.begin(),z.end(),[&](double hit){return hit+dz>=0 && hit+dz<=drift_length;});
+        const double centroid=weighted/total;
+        const auto [lowest,highest]=std::minmax_element(z.begin(),z.end());
+        const double dz_min=-*lowest, dz_max=drift_length-*highest;   // shifts that keep the whole track in the drift
+        const bool contained_z = std::isnan(fixed_depth) ? dz_min<=dz_max
+                               : fixed_depth-centroid>=dz_min && fixed_depth-centroid<=dz_max;
+        const double dz = !std::isnan(fixed_depth) ? fixed_depth-centroid          // fixed depth of the centroid
+                        : contained_z ? dz_min+(dz_max-dz_min)*uniform(depth)      // one uniform depth per parent
+                        : (dz_min+dz_max)/2;                                       // longer than the drift: rejected
+        const double target=centroid+dz;
         if(require_drift_containment && !contained_z)
             throw std::runtime_error("TWIN full-track drift containment failed: "+parent+" variant "+std::to_string(variant));
         double actual=0;

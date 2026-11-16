@@ -14,7 +14,7 @@ Line numbers refer to this branch. They are written as `file:line` and link to t
 |---|---|---|
 | **Standard (upstream)** | `config/ConfigFile_new.txt` (LIME, 4 PMTs) | Same output as upstream `main` (§2) |
 | **CYGNO04, 1 camera + 8 PMTs** | `config/ConfigFile_CYGNO04_8PMT.txt` | Standard digitizer with `pmt_number: 8`: Quest2 central camera and 8 waveform pairs `wav_fast/slow_pmt1..8`. All legacy options still work (pedestal `bckg`, `Vignetting`, `redpix_output`, `digitizers`, random shifts, `fixed_seed`, PSD noise) |
-| **TWIN ML datasets** | `config/ConfigFile_TWIN_CYGNO04.txt` | `twin_cygno04_mode: True`: camera choice and paired depths, `ml_*`/`obs_*` truth records ([TWIN_SCHEMA.md](TWIN_SCHEMA.md)) |
+| **TWIN ML datasets** | `config/ConfigFile_TWIN_CYGNO04.txt` | `twin_cygno04_mode: True`: camera, XY and depth chosen per track, `ml_*`/`obs_*` truth records ([TWIN_SCHEMA.md](TWIN_SCHEMA.md)) |
 
 The standard digitizer also runs camera-only (`pmt_mode: False`) or with any 1–8 PMTs (`pmt_number`).
 Step-by-step recipes for every mode: [TWIN_SCHEMA.md, Usage](TWIN_SCHEMA.md#usage). Output of each mode: §5.
@@ -50,7 +50,7 @@ runner and TWIN:
 * **When it runs:** once in the constructor ([DigitizationRunner.cxx:54](../src/DigitizationRunner.cxx#L54)), before any
   output is opened. The interval is applied at [:1154](../src/DigitizationRunner.cxx#L1154)–[:1157](../src/DigitizationRunner.cxx#L1157).
 * **TWIN:** requires `min_drift: 0`; `max_drift` is the drift length inside which every track is placed, 510 mm in the CYGNO04 configs ([TwinPlacement.h:47](../include/TwinPlacement.h#L47)).
-* **Tests:** [test_twin.cxx:98](../tests/test_twin.cxx#L98) covers the defaults, the shipped values, the swapped and empty
+* **Tests:** [test_twin.cxx:96](../tests/test_twin.cxx#L96) covers the defaults, the shipped values, the swapped and empty
   intervals, negative/NaN/inf/non-numeric values, `drift_length`, and the TWIN rules (`min_drift` 0, drift length from `max_drift`).
 * **Configs:** every config states the rule on its `min_drift`/`max_drift` lines
   ([ConfigFile_new.txt:25](../config/ConfigFile_new.txt#L25)–26).
@@ -106,7 +106,7 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 | [DigitizationRunner.cxx:56](../src/DigitizationRunner.cxx#L56)–57, [TwinPlacement.h:24](../include/TwinPlacement.h#L24)–51, [TwinML.h:91](../include/TwinML.h#L91) | Start-up checks | Verified geometry, every `REQUIRED` key filled, and the fixed settings (8 PMTs, both digitizers, `bckg: False`, synthetic noise, `min_drift: 0`, no exposure effect, versioned build). Any failure stops the run |
 | [DigitizationRunner.cxx:509](../src/DigitizationRunner.cxx#L509), [TwinML.h:19](../include/TwinML.h#L19) | Input checks | Every needed MC branch and `tree1` must exist, and event numbers must be unique, before any output is written |
 | [DigitizationRunner.cxx:1052](../src/DigitizationRunner.cxx#L1052) | Light source | The response uses `energyDep_hits_QF` for electron and nuclear recoils alike |
-| [TwinPlacement.h:14](../include/TwinPlacement.h#L14), [:81](../include/TwinPlacement.h#L81) | Track placement | A hash of the parent ID and `twin_master_seed` picks one of 3 cameras and one XY shift that keeps **all** hits inside that camera's view and the GEM (up to 10000 tries). Z is shifted so the energy-weighted centroid reaches the depth band of `variant_id`. Camera and XY are the same for all 4 variants |
+| [TwinPlacement.h:14](../include/TwinPlacement.h#L14), [:81](../include/TwinPlacement.h#L81) | Track placement | A hash of the parent ID and `twin_master_seed` picks one of 3 cameras and one XY shift that keeps **all** hits inside that camera's view and the GEM (up to 10000 tries). Z gets one uniform shift over the range that keeps the whole track between the GEM and `max_drift`; with `twin_depth_mm` the energy-weighted centroid is put at that depth instead. Another `variant_id` gives another depth draw with the same camera and XY |
 | [TwinPlacement.h:73](../include/TwinPlacement.h#L73)/[:77](../include/TwinPlacement.h#L77), [DigitizationRunner.cxx:1094](../src/DigitizationRunner.cxx#L1094), [:1246](../src/DigitizationRunner.cxx#L1246) | Two frames | The camera image is drawn in the chosen camera's own frame. PMT light is computed back in the GEM frame, so all 8 PMTs see the event where it really is |
 | [TrackProcessor.cxx:104](../src/TrackProcessor.cxx#L104), 206/295/411/487, [:600](../src/TrackProcessor.cxx#L600), [:605](../src/TrackProcessor.cxx#L605) | Photon counts as decimals | No rounding per voxel or pixel. The standard path still rounds, as upstream |
 | [DigitizationRunner.cxx:1224](../src/DigitizationRunner.cxx#L1224) | PMT photoelectron yield | photons × `photons_per_el` × `twin_pmt_quantum_efficiency`. The standard path keeps upstream's fixed 0.0136 |
@@ -157,7 +157,7 @@ With `pmt_mode: False` no PMT branch is written.
 | **Truth** (`ml_*`, 28 branches) | `ml_hit_x/y/z_mm`, `ml_hit_evis_keV`, `ml_hit_edep_keV` | Every hit after placement, with visible and raw energy |
 | | `ml_initial_ux/uy/uz`, `ml_direction_valid`, `ml_primary_energy_MeV`, `ml_primary_vertex_mm` | Generated direction, energy and vertex from `tree1` |
 | | `ml_primary_pdg`, `ml_class_nr`, `ml_evis_total_keV`, `ml_z_centroid_mm` | Particle, NR/ER class, visible energy, depth |
-| | `ml_parent_id`, `ml_variant_id`, `ml_response_id`, `ml_seed`, `ml_camera_id`, `ml_side_id`, `ml_placement_xyz_mm`, `ml_source_file_id` | Pairing keys and placement |
+| | `ml_parent_id`, `ml_variant_id`, `ml_response_id`, `ml_seed`, `ml_camera_id`, `ml_side_id`, `ml_placement_xyz_mm`, `ml_source_file_id` | Track identity and placement |
 | | `ml_valid`, `ml_reject_reason`, `ml_response_hit_index`, `ml_legacy_sparse_clipped`, `ml_schema_version` | Quality and audit |
 | **Audit** | `camera_id`, `selected_side`, `parent_id`, `variant_id`, `target_depth_mm`, `actual_depth_mm`, `visible_ionization_weights`, `source_x/y/z`, `source_px/py/pz` | Placement inputs and the original MC hits |
 
@@ -179,6 +179,7 @@ Types, units and which branches may be model inputs: [TWIN_SCHEMA.md](TWIN_SCHEM
 | `pmt_noise_channels` | identity | `';'`-separated PSD template channel per PMT |
 | `drift_velocity` | absent: built-in table at `drift_field` | Drift velocity in cm/µs used for the PMT arrival times ([Utils.cxx:118](../src/Utils.cxx#L118), [DigitizationRunner.cxx:1222](../src/DigitizationRunner.cxx#L1222)). Must be a positive number; checked at start-up. The table gives 5.91 at 0.95 kV/cm, the TWIN config sets 6.25305 |
 | `save_expected_lambda` | `False` | Writes the sparse expected light `expected_ix`, `expected_iy`, `expected_lambda_e` (§4.6) |
+| `twin_depth_mm` | absent: one uniform depth per track | TWIN only. Fixed depth of the charge centroid in mm, between 0 and `max_drift` (diagnostic set) |
 | `twin_cygno04_mode` | `False` | Enables TWIN. All `twin_*` keys, `variant_id` and the `REQUIRED` per-run inputs are documented inline in `ConfigFile_TWIN_CYGNO04.txt` |
 
 Each key is commented where it is used: [ConfigFile_new.txt:25](../config/ConfigFile_new.txt#L25), [:102](../config/ConfigFile_new.txt#L102)–104, [:135](../config/ConfigFile_new.txt#L135); [ConfigFile_CYGNO04_8PMT.txt:1](../config/ConfigFile_CYGNO04_8PMT.txt#L1)–12 (how to switch camera) and [:115](../config/ConfigFile_CYGNO04_8PMT.txt#L115)–122.
@@ -240,13 +241,15 @@ Other sources:
 * [IDM2026 slides, S. Piacentini](https://indico.capa.unizar.es/event/40/contributions/862/attachments/618/1369/IDM2026_Piacentini.pdf) p.10
 * [CYGNUS-RD/WIKI-documentation CYGNO-04](https://github.com/CYGNUS-RD/WIKI-documentation/tree/main/CYGNO-04)
 
-## 8. TWIN pairing rules (summary)
+## 8. TWIN placement rules (summary)
 
-* Run the same inputs 4 times with `variant_id = 0..3` into separate output folders, and change nothing else.
+* One run places every track once: camera, XY and depth. For fixed depths set `twin_depth_mm` and run once per
+  depth, into separate output folders.
 * The parent ID is `twin_source_id/<ROOT file UUID>:eventnumber`. The camera and XY draws depend only on the
   parent, the side and `twin_master_seed`; the depth draw also depends on `variant_id`.
 * A shift must keep **all** hits inside the FOV and the GEM; up to 10000 attempts are made. Hits are never
-  removed or truncated. Any hit outside 0–`max_drift` after the Z move rejects that variant, and the record says why.
+  removed or truncated. A track longer than the drift, or one that a fixed depth pushes outside 0–`max_drift`, is rejected, and the
+  record says why.
 * `exposure_time_effect` must be `False`. NR-only filtering and the `ion_pot` early exit are bypassed, so
   every parent gives a record.
 
@@ -267,7 +270,9 @@ Other sources:
   * the PMT electronics/SPE constants and noise templates are LIME values;
   * the TWIN PMT trigger is ideal (first photoelectron).
 * **Inherited from upstream:** the PMT acceptance r²h²/(4R⁴) has one extra cos θ compared with the exact
-  small-disk solid angle, and photon counts are rounded per voxel.
+  small-disk solid angle, and photon counts are rounded per voxel. The renderer aligns each charge box to the
+  pixel grid by rounding its centre, so light within half a pixel of the image edge can be dropped: 0.06 mm at
+  the Quest2 scale, 6 mm with the 12.5 mm pixels of the test fixtures.
 * **Not in the readout CAD:** the cathode and field cage. The active GEM area comes from `cygno_04_v3`; the drift
   length and `z_offset` come from the nominal detector of CYGNO-MC `master`. The GEM position in the v4 CAD
   file itself has not been read.

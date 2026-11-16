@@ -153,7 +153,7 @@
 'twin_side': 'L',
 'twin_source_id': 'REQUIRED', # Stable dataset namespace; unique filenames within it.
 'twin_master_seed': 2026,
-'variant_id': 0,
+'variant_id': 0, # Replica label, any integer >= 0. Same parent, other variant_id: same camera and XY, another depth draw.
 'twin_gem_xmin' : -250., # Active GEM / field cage interior 500 mm (cygno_04_v3 FieldCage.stl, Cathode.stl)
 'twin_gem_xmax' : 250., # 
 'twin_gem_ymin' : -400., # Active GEM / field cage interior 800 mm
@@ -169,15 +169,9 @@
 'twin_camera_2_x': 0.,
 'twin_camera_2_y': -266.7,
 'twin_camera_2_angle_rad' : 0., # Sensor 4096-px axis along GEM X (landscape windows in CAD end plate)
-# Example design strata in mm, not detector measurements; equal min/max fixes a target.
-'twin_depth_0_min': 50.,
-'twin_depth_0_max': 100.,
-'twin_depth_1_min': 150.,
-'twin_depth_1_max': 200.,
-'twin_depth_2_min': 300.,
-'twin_depth_2_max': 350.,
-'twin_depth_3_min': 400.,
-'twin_depth_3_max': 450.,
+# Depth: by default every parent gets one uniform depth, drawn over the range that keeps the whole track
+# between the GEM and max_drift. For the diagnostic set, fix the depth of the charge centroid instead:
+# 'twin_depth_mm': 250., # Optional [mm]; one run per value (50, 150, 250, 350, 450), each in its own output folder.
 
 # ML dataset contract: upstream QF includes electronic secondaries.
 'twin_mc_commit': 'REQUIRED', # Full source-MC build commit, not a guessed revision.

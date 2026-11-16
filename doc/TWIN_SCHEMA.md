@@ -3,7 +3,7 @@
 This page has two parts:
 
 * **Usage** (below): how to run the digitizer as upstream, with or without PMTs, with 1–8 PMTs, as CYGNO04
-  one camera + 8 PMTs, and in TWIN mode for paired ML datasets.
+  one camera + 8 PMTs, and in TWIN mode for ML datasets.
 * **TWIN output contract** (from [File-local MC join](#file-local-mc-join-and-visible-energy) on): every branch
   TWIN mode writes, its type and unit, and which ones may be used as model inputs.
 
@@ -30,7 +30,7 @@ Every mode below is chosen **only by the config file**. There are no extra comma
 | **B. Camera only, no PMTs** | any config | `pmt_mode: False`. No waveforms, no `pmt_signal_valid`, no PMT noise download |
 | **C. Change the number of PMTs (1–8)** | `ConfigFile_new.txt` | `pmt_number: N` and `pmt_1_x/y … pmt_N_x/y`, `dist_gem_pmt`, `pmt_radius` |
 | **D. CYGNO04: one camera + all 8 PMTs, ordinary digitization** | `config/ConfigFile_CYGNO04_8PMT.txt` | Ready to run. CYGNO04 PMT positions from the CAD |
-| **E. TWIN paired-depth ML datasets** | `config/ConfigFile_TWIN_CYGNO04.txt` | Fill every `REQUIRED` value, then run 4 times with `variant_id` 0–3 (below) |
+| **E. TWIN ML datasets** | `config/ConfigFile_TWIN_CYGNO04.txt` | Fill every `REQUIRED` value and run once (below) |
 
 Modes A–D are the ordinary digitizer: every upstream option keeps working, including the camera pedestal
 (`bckg`), `Vignetting`, `redpix_output`, `exposure_time_effect`, random shifts, `fixed_seed`, `digitizers`,
@@ -60,11 +60,11 @@ Common PMT recipes:
 lower camera, subtract its centre (y = +266.7 or −266.7 mm) from every `pmt_N_y` and set `y_offset` to
 −266.7 or +266.7, as explained in the config header.
 
-### Mode E: TWIN paired-depth datasets
+### Mode E: TWIN datasets
 
-TWIN places each MC track in front of one of the 3 CYGNO04 cameras and renders it at one of 4 depths.
-The same track gets the same camera and the same XY position in all 4 depth variants, so the 4 records
-differ only in depth.
+TWIN places each MC track itself: one of the 3 CYGNO04 cameras, a uniform XY position inside that camera's
+view and the GEM, and one uniform depth over the range that keeps the whole track between the GEM and
+`max_drift`. All three are fixed by the parent ID, so a rerun places every track in the same way.
 
 **Before the first run, add the vignetting map.** `ConfigFile_TWIN_CYGNO04.txt` has `Vignetting: True` with
 `Vig_Map: vignette_ORCA_calibrated.root` (Davide–Melba map). The file is **not in this repository**: it is kept
@@ -79,14 +79,18 @@ Without it the run stops at once with `Vignetting map not found`.
    * `twin_pmt_noise_rms_v`.
 2. **Build with CMake from a git checkout.** TWIN refuses an unversioned build, because every output stores
    the digitizer commit.
-3. **Run the same input 4 times**, changing only `variant_id`, each into its own output folder:
+3. **Run once:** `./build-dir/digitizationpp my_twin.txt -I mc_in -O out`.
+   * **Fixed depths (diagnostic set):** the config has a commented line `# 'twin_depth_mm': 250.,`. Uncommented, it
+     fixes the depth of the charge centroid. Run once per depth, each into its own output folder:
 
-   ```bash
-   for v in 0 1 2 3; do
-     sed "s/^'variant_id': 0,/'variant_id': $v,/" my_twin.txt > my_twin_v$v.txt
-     ./build-dir/digitizationpp my_twin_v$v.txt -I mc_in -O out_v$v
-   done
-   ```
+     ```bash
+     for d in 50 150 250 350 450; do
+       sed "s/^# 'twin_depth_mm': 250\./'twin_depth_mm': $d./" my_twin.txt > my_twin_d$d.txt
+       ./build-dir/digitizationpp my_twin_d$d.txt -I mc_in -O out_d$d
+     done
+     ```
+
+   * **Another depth draw for the same tracks:** change `variant_id` (any integer ≥ 0). Camera and XY stay the same.
 
 4. **Side R:** set `twin_side: 'R'`, `MC_xaxis: '-x'`, `MC_zaxis: '-z'`; `z_offset` stays 510.03.
 5. **Extra noise replicas** of the same tracks: change `twin_response_id` (or `twin_detector_seed`).
@@ -131,7 +135,7 @@ for e in t:
     cam = np.asarray(e.obs_camera_counts).reshape(e.obs_camera_height, e.obs_camera_width)
 ```
 
-Pair the 4 variants on `ml_parent_id`. `python3 tools/inspect_twin_event.py <file> --entry 0` draws one record:
+Records of the same track share `ml_parent_id`. `python3 tools/inspect_twin_event.py <file> --entry 0` draws one record:
 3D truth, camera image and the 16 waveforms.
 
 ---
@@ -204,8 +208,8 @@ geometric theta/phi or first-hit differences as the generated direction.
 | Branch | ROOT/C++ type, shape, unit | Role |
 |---|---|---|
 | ml_schema_version | int scalar, 1 | Audit |
-| ml_parent_id, ml_source_file_id | string scalar | Audit, pairing key |
-| ml_variant_id, ml_response_id | int scalars | Audit, configured depth stratum / response replicate |
+| ml_parent_id, ml_source_file_id | string scalar | Audit, identity of the track |
+| ml_variant_id, ml_response_id | int scalars | Audit, depth-draw replica / response replicate |
 | ml_seed | ULong64_t scalar | Audit, derived detector seed |
 | ml_camera_id | int scalar 0..2, -1 if unplaced | Observable camera selection / audit |
 | ml_side_id | int scalar 0=L, 1=R | Observable detector side / audit |
@@ -225,8 +229,7 @@ geometric theta/phi or first-hit differences as the generated direction.
 | ml_reject_reason | string scalar, empty for valid | Audit |
 | ml_legacy_sparse_clipped | bool scalar | Audit: old uint16 camera branch saturated |
 
-Pair records on `ml_parent_id`, requiring all variant IDs 0..3 and the intended
-response IDs. The position/weight arrays retain all electronic secondaries.
+Records of the same track share `ml_parent_id`. The position/weight arrays retain all electronic secondaries.
 Dataset splits must group by parent. Different detector seeds/response IDs do
 not alter camera choice or XY placement; those use the independent placement
 master seed `twin_master_seed`. The Z shift changes only absolute depth, not relative
@@ -350,11 +353,11 @@ ROOTANA pedestal loading and OpenCV measured-PSD IFFT; offline TWIN noise,
 ROOT I/O, collection, SPE, charge and camera response are real production code.
 `python3 tests/run_pmt_tests.py --without-opencv` checks four/eight-channel
 legacy paths with an explicit zero-noise IFFT stub. tests/test_twin.cxx covers
-paired geometry/depth containment and fixed PMTs. `tools/inspect_twin_event.py`
+placement (camera, XY, uniform and fixed depth), containment and fixed PMTs. `tools/inspect_twin_event.py`
 uses PyROOT to display one event's 3D truth, camera and sixteen waveforms.
 
 Before production: validate sensor calibration and
 ideal-trigger assumptions, build with ROOTANA/OpenCV, run real ER/He/C/F MC files,
-inspect all energy/rejection distributions, verify four variants pair completely,
+inspect all energy/rejection distributions,
 and repeat outputs on the exact CNAF binary/dependency stack. Synthetic fixtures
 validate bookkeeping, not measured charge/light response or Geant4 transport.

@@ -85,7 +85,8 @@ int main(int argc,char** argv) {
             assert(eix->size()==elam->size() && eiy->size()==elam->size() && *elam==*elam_b);
             assert(all_of(elam->begin(),elam->end(),[](double v){return v>0;}));
             if(!r.valid) assert(elam->empty());
-            if(entry==0) assert(!elam->empty()); // The fixture gives ~0.04 expected photoelectrons: too few to test mean(sampled)=expected here.
+            // No check that a valid track has light: with the 12.5 mm test pixels a track within half a pixel of the
+            // image edge loses it (renderer grid rounding), and the fixture has too little light to test the mean.
             // A pixel with sampled light must have expected light (same pixel indices as obs_camera_ix/iy).
             set<pair<int,int>> lit;for(size_t i=0;i<eix->size();++i) lit.insert({(*eix)[i],(*eiy)[i]});
             for(size_t i=0;i<six->size();++i) assert(lit.count({(*six)[i],(*siy)[i]}));

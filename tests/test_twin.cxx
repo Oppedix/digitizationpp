@@ -17,17 +17,13 @@ int main(int argc,char** argv) {
         string k="twin_camera_"+to_string(i);
         options[k+"_x"]="0"; options[k+"_y"]=to_string(265*(1-i)); options[k+"_angle_rad"]="0";
     }
-    for(int i=0;i<4;++i) {
-        string k="twin_depth_"+to_string(i);
-        options[k+"_min"]=options[k+"_max"]=to_string(75+100*i);
-    }
     for(int i=1;i<=8;++i) {
         options["pmt_"+to_string(i)+"_x"]=to_string(i%2 ? -200 : 200);
         options["pmt_"+to_string(i)+"_y"]=to_string(-300+200*((i-1)/2));
     }
     const auto original_options=options;
     const vector<double> sx={-5,0,5},sy={-10,0,10},sz={10,20,40},w={1,2,3};
-    set<int> seen;
+    set<int> seen; double lowest=1e9,highest=-1e9;
     ofstream svg(argc>1 ? argv[1] : "twin-synthetic.svg");
     svg<<"<svg xmlns='http://www.w3.org/2000/svg' viewBox='-300 -450 600 900'><rect x='-250' y='-400' width='500' height='800' fill='white' stroke='black'/>";
     TwinPlacement base(options);
@@ -41,7 +37,8 @@ int main(int argc,char** argv) {
             auto x=sx,y=sy,z=sz;
             auto result=placement.place("synthetic/file:"+to_string(parent),x,y,z,w);
             seen.insert(result.camera);
-            assert(abs(result.actual-(75+100*variant))<1e-10);
+            assert(abs(result.actual-result.target)<1e-10);          // one uniform depth per parent and variant
+            lowest=min(lowest,result.actual); highest=max(highest,result.actual);
             assert(w==vector<double>({1,2,3}));
             if(variant==0) {camera=result.camera;paired_x=x;paired_y=y;}
             else {assert(camera==result.camera);assert(x==paired_x && y==paired_y);}
@@ -62,6 +59,7 @@ int main(int argc,char** argv) {
         }
     }
     assert(seen.size()==3);
+    assert(lowest<60 && highest>440); // depths cover the drift: the centroid can lie between 18 and 488 mm
     // PMT geometry stays identical when the light source moves; compare collection means statistically.
     double near=0,far=0;
     for(int i=0;i<30;++i) {
@@ -79,12 +77,12 @@ int main(int argc,char** argv) {
     x={-1000,0,1000};y=sy;z=sz;rejected=false;
     try {base.place("too-wide",x,y,z,w);} catch(const runtime_error&) {rejected=true;} assert(rejected);
     options["variant_id"]="0";
-    options["twin_depth_0_min"]="50"; options["twin_depth_0_max"]="100";
+    options["twin_depth_mm"]="75"; // fixed depth of the charge centroid, as for the diagnostic set
     for(int i=0;i<3;++i) options["twin_camera_"+to_string(i)+"_angle_rad"]="0.2";
     TwinPlacement rotated(options);
     for(int n=0;n<10;++n) {
         x=sx;y=sy;z=sz;const auto r=rotated.place("rotated:"+to_string(n),x,y,z,w);
-        assert(r.target>=50 && r.target<=100 && abs(r.actual-r.target)<1e-10);
+        assert(abs(r.target-75)<1e-10 && abs(r.actual-75)<1e-10);
         for(size_t i=0;i<x.size();++i) {
             auto q=rotated.local(r.camera,x[i],y[i]);
             assert(abs(q[0])<=rotated.width/2+1e-10 && abs(q[1])<=rotated.height/2+1e-10);
@@ -93,7 +91,7 @@ int main(int argc,char** argv) {
     options["twin_geometry_verified"]="False";rejected=false;
     try {TwinPlacement invalid(options);} catch(const invalid_argument&) {rejected=true;} assert(rejected);
     svg<<"<text x='-280' y='-420' font-size='12'>SYNTHETIC ONLY: blue cameras, red PMTs, green tracks</text></svg>";
-    cout<<"PASS: paired placement, centroid, containment, rigid truth, fixed PMTs and XY collection\n";
+    cout<<"PASS: same camera and XY per parent, uniform and fixed depth, containment, rigid truth, fixed PMTs and XY collection\n";
 
     // Response drift interval (min_drift/max_drift, upstream PR #59) incl. the order check.
     using Drift=map<string,string>;
@@ -116,5 +114,8 @@ int main(int argc,char** argv) {
     rejected=false; try {TwinPlacement invalid(drift);} catch(const invalid_argument&) {rejected=true;} assert(rejected);
     drift.erase("min_drift"); drift["max_drift"]="510";               // omitted min_drift = 0; max_drift is the drift length
     assert(TwinPlacement{drift}.drift_length==510.);
-    cout<<"PASS: drift interval defaults, order check, invalid/removed keys, TWIN drift length from max_drift\n";
+    drift["twin_depth_mm"]="600"; rejected=false;                     // a fixed depth must lie inside the drift
+    try {TwinPlacement invalid(drift);} catch(const invalid_argument&) {rejected=true;} assert(rejected);
+    drift.erase("twin_depth_mm"); drift["variant_id"]="7"; TwinPlacement{drift}; // any replica label >= 0
+    cout<<"PASS: drift interval defaults, order check, invalid/removed keys, TWIN drift length from max_drift, fixed depth inside the drift\n";
 }

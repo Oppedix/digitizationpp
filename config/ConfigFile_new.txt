@@ -134,7 +134,7 @@
 
 # Fork additions (Oppedix/digitizationpp twin-cygno04), see doc/TWIN_DIGI_CHANGES.md:
 # - CYGNO04 one camera + 8 PMTs, ordinary digitization: config/ConfigFile_CYGNO04_8PMT.txt
-# - TWIN paired-depth ML datasets ('twin_cygno04_mode': True): config/ConfigFile_TWIN_CYGNO04.txt
+# - TWIN ML datasets ('twin_cygno04_mode': True): config/ConfigFile_TWIN_CYGNO04.txt
 # 'twin_cygno04_mode'   : False,      # Omitted/False = this standard digitizer, unchanged
 
 }
