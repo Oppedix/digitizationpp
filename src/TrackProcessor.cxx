@@ -845,7 +845,7 @@ void TrackProcessor::smear_parallel(const vector<double>& x_axis_hit,const vecto
             myMutex.lock();
             //deterministic seed from chunk start
             if(fixedSeed) paralrandom.SetSeed(3+static_cast<UInt_t>(range.begin())+static_cast<UInt_t>(batch_index*100000));
-            else paralrandom.SetSeed(floor(gRandom->Rndm()*10000));
+            else paralrandom.SetSeed(1u + gRandom->Integer(4294967295u)); // BATMAN: 2^32 seeds, not 10^4
             myMutex.unlock();
             for(auto iterator=range.begin();iterator<range.end();++iterator)
             {

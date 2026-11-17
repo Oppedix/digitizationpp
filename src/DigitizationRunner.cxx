@@ -51,6 +51,15 @@ DigitizationRunner::DigitizationRunner(const std::string& configFile_,
     
 
     runCount = config.getInt("start_run_number");
+
+    // BATMAN: optional 'events_per_file' replaces the default 200 events per output run.
+    if (!config.get("events_per_file").empty()) {
+        NMAX_EVENTS = config.getInt("events_per_file");
+        if (NMAX_EVENTS <= 0) {
+            cerr << "'events_per_file' must be positive" << endl;
+            exit(EXIT_FAILURE);
+        }
+    }
     
 
     // DEBUG
