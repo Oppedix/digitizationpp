@@ -186,7 +186,10 @@ int DigitizationRunner::extractDigiRunNumber(const std::string& filename) {
 }
 
 void DigitizationRunner::setSeed(int seed) {
-    if(config.getBool("fixed_seed")) gRandom->SetSeed(seed);
+    // BATMAN: an explicit non-zero 'seed' gives each run its own reproducible stream;
+    // otherwise every run starts from ROOT's default seed and repeats the same draws.
+    if (!config.get("seed").empty()) gRandom->SetSeed(config.getInt("seed"));
+    else if(config.getBool("fixed_seed")) gRandom->SetSeed(seed);
     return;
 }
 
