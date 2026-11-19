@@ -78,9 +78,9 @@ is [flow.md](../flow.md); where it says "PMTs 1–4" and "PMT generators are not
 | **New key `sigma0_light`** ([:602](../src/TrackProcessor.cxx#L602)–624, [:1166](../src/TrackProcessor.cxx#L1166)) | Extra Gaussian blur, in mm, of the light of GEM3, applied to the camera image after the saturation and before vignetting and the Poisson draw. It does not change the saturation and does not act on the PMTs. Absent or 0: off |
 | **Fixed seed per batch** ([:849](../src/TrackProcessor.cxx#L849)) | With `fixed_seed: True`, each batch of hits gets its own seed |
 
-* **Values here:** upstream's `ConfigFile_new.txt` sets `primary_granularity: True`. The two CYGNO04 configs set
-  `primary_granularity: False` and `sigma0_light: 0.`, the model their diffusion and saturation values were tuned
-  with. Switching either on changes the simulated images; nothing else needs to change.
+* **Values here:** the TWIN config sets `primary_granularity: True` and `sigma0_light: 0.2054` mm. The spot of a
+  point at zero drift is then σ² = 0.04127 + 0.2054² = 0.08346 mm² on the camera, and 0.04127 mm² for the
+  saturation and the PMTs. `ConfigFile_CYGNO04_8PMT.txt` keeps `False` and 0. Both are config values; no code changes with them.
 * **Conflicts:** three. The dense route and the fixed-seed line are upstream's, with the TWIN lines put back
   (decimal light per voxel, [:529](../src/TrackProcessor.cxx#L529); TWIN seeding, [:848](../src/TrackProcessor.cxx#L848)).
   The drift interval stays in `DriftRange.h` (§3.1).
@@ -216,7 +216,7 @@ Types, units and which branches may be model inputs: [TWIN_SCHEMA.md](TWIN_SCHEM
 | Key | Default | Meaning |
 |---|---|---|
 | `min_drift`, `max_drift` | 0, 510 mm | Upstream keys. Deposits with z outside the interval are excluded from the response. Rule: `0 <= min_drift < max_drift`. `drift_length` is no longer accepted |
-| `primary_granularity`, `sigma0_light` | `False`, 0 | Upstream keys (§3.2): per-primary diffusion; blur of the GEM3 light in mm. Both CYGNO04 configs write the defaults explicitly |
+| `primary_granularity`, `sigma0_light` | `False`, 0 | Upstream keys (§3.2): per-primary diffusion; blur of the GEM3 light in mm. The TWIN config sets `True` and 0.2054 mm; `ConfigFile_CYGNO04_8PMT.txt` writes the defaults |
 | `pmt_number` | 4 | Now 1–8 |
 | `pmt_noise` | `True` | `False` gives noiseless PMT waveforms |
 | `pmt_noise_channels` | identity | `';'`-separated PSD template channel per PMT |
