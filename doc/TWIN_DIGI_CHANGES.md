@@ -2,7 +2,7 @@
 
 Branch `twin-cygno04` of `Oppedix/digitizationpp` = **upstream `CYGNUS-RD/digitizationpp` `main`
 (`5e4c810`, 2026-11-17) + the additions below**, including the expected-light export merged from branch
-`batman` (§4.6). Fork `main` is an exact copy of upstream `main`.
+`batman` (§4.6). Fork `main` is a copy of upstream `main` at `f250be5` (2026-11-04); the newer upstream commits are only in this branch.
 Line numbers refer to this branch. They are written as `file:line` and link to the line on GitHub.
 
 **Rule kept throughout:** with no new keys, or the new keys at their defaults, the digitizer does what upstream
