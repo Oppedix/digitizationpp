@@ -11,6 +11,8 @@
 'diff_coeff_T'          : 0.02494,     # transverse diffusion coefficient [mm^2/cm]
 'diff_const_sigma0L'    : 0.0676,      # longitudinal diffusion constant sigma0^2 [mm^2]
 'diff_coeff_L'          : 0.008597,    # longitudinal diffusion coefficient [mm^2/cm]
+'primary_granularity'   : False,     # True: drift diffusion once per primary electron, sigma0 per avalanche electron. False: every avalanche electron diffuses on its own; False keeps the per-avalanche-electron model the diffusion and saturation values above and below were tuned with (TWIN plan section 4.1)
+'sigma0_light'          : 0.,        # Extra Gaussian spread of the GEM3 light after saturation [mm], camera only; 0 = off
 'ion_pot'               : 0.0350,    # ionization potential for He/CF4 60/40 [keV]
 'photons_per_el'        : 0.07,      # number of photons per electron produced in the avalanche
 'absorption_l'          : 891.7,     # attachment length [mm]

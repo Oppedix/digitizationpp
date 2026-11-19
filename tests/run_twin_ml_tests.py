@@ -63,6 +63,8 @@ vector<double> SignalSimulation::compute_noise(const vector<double>&,const strin
         sample=tmp/name;sample.mkdir();mc=sample/(name+'.root')
         subprocess.run([str(tmp/'check'),'fixture',str(mc),'unused','unused'],check=True)
         settings['twin_primary_pdg']=pdg
+        # Fluorine runs with upstream's two options on: per-primary diffusion, and a light blur of 0.4 test pixels.
+        settings.update(primary_granularity=name=='fluorine',sigma0_light=5. if name=='fluorine' else 0.)
         paths=[]
         for run in ('first','repeat','different'):
             settings['twin_detector_seed']=124 if run=='different' else 123
@@ -76,6 +78,7 @@ vector<double> SignalSimulation::compute_noise(const vector<double>&,const strin
         subprocess.run([str(tmp/'check'),'check',*map(str,paths)],check=True)
     subprocess.run(['python3',str(repo/'tools/inspect_twin_event.py'),str(paths[0]),'--output',str(tmp/'diagnostic.png')],check=True)
     assert (tmp/'diagnostic.png').stat().st_size>0
+    settings.update(primary_granularity=False,sigma0_light=0.)
     # Real pedestals and image file (bckg=True, redpix_output=False): 4 frames named after their two runs; same seed twice.
     ped=tmp/'peds';ped.mkdir()
     subprocess.run([str(tmp/'check'),'pedestal',str(ped/'pedestals_test_111_222.root'),'unused','unused'],check=True)
@@ -91,4 +94,4 @@ vector<double> SignalSimulation::compute_noise(const vector<double>&,const strin
             print(result.stdout);print(result.stderr);result.check_returncode()
         paths.append(next((out/'one').glob('digi_*.root')))
     subprocess.run([str(tmp/'check'),'pedcheck',str(paths[0]),str(paths[1]),str(paths[0].with_name('histograms_Run00000.root'))],check=True)
-    print('PASS: actual runner with synthetic fixtures, rejected/empty records, eight waveforms, same-seed repeat, changed-seed independence, image file with real pedestal frames')
+    print('PASS: actual runner with synthetic fixtures, rejected/empty records, eight waveforms, same-seed repeat, changed-seed independence, per-primary diffusion and light blur, image file with real pedestal frames')

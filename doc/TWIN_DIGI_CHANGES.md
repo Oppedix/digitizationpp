@@ -1,7 +1,7 @@
 # `twin-cygno04` vs `main`: what changes in the digitizer
 
 Branch `twin-cygno04` of `Oppedix/digitizationpp` = **upstream `CYGNUS-RD/digitizationpp` `main`
-(`f250be5`, 2026-11-04) + the additions below**, including the expected-light export merged from branch
+(`5e4c810`, 2026-11-17) + the additions below**, including the expected-light export merged from branch
 `batman` (§4.6). Fork `main` is an exact copy of upstream `main`.
 Line numbers refer to this branch. They are written as `file:line` and link to the line on GitHub.
 
@@ -21,26 +21,32 @@ Step-by-step recipes for every mode: [TWIN_SCHEMA.md, Usage](TWIN_SCHEMA.md#usag
 
 ## 2. Verified identical to upstream `main`
 
-I built upstream `main` and this branch with the same dependency stubs: no ROOTANA, and the OpenCV
-noise IFFT replaced by zero noise. Both ran on the same 7-event MC fixture (ER, He NR, a GEM-crossing
-track, a track crossing `max_drift`, an empty event, a sub-`ion_pot` event, a long track) with upstream's
-`ConfigFile_new.txt`, `fixed_seed: True` and `bckg: False`.
+`tests/compare_with_upstream.py` builds upstream `main` (`5e4c810`) and this branch with the same dependency
+stubs: no ROOTANA and no OpenCV. Both run on the same 8-event MC fixture with upstream's `ConfigFile_new.txt`,
+`fixed_seed: True`, `bckg: False`, vignetting and PMTs off, one thread, GEM1 and GEM2 at 400 V to shorten the run. The events take every route of the
+charge simulation: a small track (sparse map), a 30 keV track (dense, one slab), a 300 keV track (dense,
+several slabs), a 110 keV nuclear recoil (sparse map in `WID` batches), an empty event, a track crossing the
+GEM plane, a track crossing `max_drift`, and an event below `ion_pot`. The run is repeated with
+`primary_granularity` off and on and `sigma0_light` 0 and 0.2 mm.
 
-* `redpix_output: True`: the 35 scalar and redpix branches and all `param_dir` values are identical.
-  PMT waveform lengths are identical too; their values are random in both versions (non-seeded `random_device`).
-* `redpix_output: False`: all 7 camera images are **pixel-identical**.
-* The only differences:
-  * (a) a new branch `pmt_signal_valid`;
-  * (b) `particle_type` of the empty event. Upstream reads `pdgID_hits[0]` of an empty vector, which is
-    undefined behaviour; this branch writes 0 ([DigitizationRunner.cxx:893](../src/DigitizationRunner.cxx#L893)).
-* The run had to use `min_drift: 1e-6`, because upstream `main` **aborts on the first event with its own
-  default `min_drift: 0`** (§3).
+* All 32 camera images are **pixel-identical**, and so are the 29 numeric `event_info` branches.
+* The only difference is `particle_type` of the empty event. Upstream reads `pdgID_hits[0]` of an empty vector,
+  which is undefined behaviour (here it repeats the previous event); this branch writes 0
+  ([DigitizationRunner.cxx:893](../src/DigitizationRunner.cxx#L893)).
+* Not in this comparison, and not touched by the last merge: the sparse output (`redpix_output: True`), the
+  `param_dir` values and the PMT branches. They were compared with the previous upstream `main` (`f250be5`):
+  identical, except for the new branch `pmt_signal_valid`. PMT waveform values are random in both versions
+  (non-seeded `random_device`); their lengths are identical.
 
-## 3. Upstream PR #59 (`min_drift` / `max_drift`) merged, one bug fixed
+Repeat it after every merge of upstream: §10.
+
+## 3. Upstream changes merged
+
+### 3.1 PR #59: `min_drift` / `max_drift`, one check kept here
 
 Upstream replaced `drift_length` with the response interval `[min_drift, max_drift]`, with defaults 0 and 510 mm.
-Its check `min_drift <= 0 → throw` rejects the default 0, so every run with `ConfigFile_new.txt` stops.
-This branch moves the check into one helper, [DriftRange.h:11](../include/DriftRange.h#L11), used by both the
+Its first check rejected the default 0; upstream now accepts 0 (`03bb080`), but checks neither the order of
+the two values nor the removed key. This branch keeps the check into one helper, [DriftRange.h:11](../include/DriftRange.h#L11), used by both the
 runner and TWIN:
 
 * **Rules:** `0 <= min_drift < max_drift`, and both values must be finite numbers. The defaults stay 0 and 510.
@@ -53,10 +59,33 @@ runner and TWIN:
 * **Tests:** [test_twin.cxx:96](../tests/test_twin.cxx#L96) covers the defaults, the shipped values, the swapped and empty
   intervals, negative/NaN/inf/non-numeric values, `drift_length`, and the TWIN rules (`min_drift` 0, drift length from `max_drift`).
 * **Configs:** every config states the rule on its `min_drift`/`max_drift` lines
-  ([ConfigFile_new.txt:25](../config/ConfigFile_new.txt#L25)–26).
+  ([ConfigFile_new.txt:27](../config/ConfigFile_new.txt#L27)–28).
 * Upstream's second commit (`a079ff8`, setSeed revert) changes nothing here; this branch already had that `setSeed`.
 
 The three earlier drift-boundary fixes (fractional negative z, z ≥ 0 only, upper cut) are already upstream.
+
+### 3.2 PR #61 and #62: charge sampled once, per-primary diffusion, light blur
+
+Upstream `main` of 2026-11-17 (`5e4c810`) changes how the charge cloud is built. All of it is in
+`TrackProcessor.cxx` and applies to every mode, TWIN included. Upstream's own description of the whole chain
+is [flow.md](../flow.md); where it says "PMTs 1–4" and "PMT generators are not seeded", this branch differs (§4.2, §4.5).
+
+| What | Effect |
+|---|---|
+| **Charge sampled once** ([TrackProcessor.cxx:64](../src/TrackProcessor.cxx#L64)–83) | The primary electrons and the GEM1/GEM2 gain of a track are drawn once. Before, a bright track that was processed in several depth slabs drew its charge again for every slab, so each slab saw a different track. This is a bug fix: it changes dense, high-energy tracks |
+| **Dense route rewritten** ([:388](../src/TrackProcessor.cxx#L388)–543) | Each electron is given to exactly one depth bin (binomial draws), then spread in x and y in blocks of at most 65,536. Memory no longer grows with the track energy. Electrons that diffuse outside the voxel grid are dropped |
+| **New key `primary_granularity`** ([:70](../src/TrackProcessor.cxx#L70), [:1210](../src/TrackProcessor.cxx#L1210)) | `True`: each primary electron diffuses once during the drift (σ² = coefficient × z), and its avalanche electrons spread around it by σ₀ only, so the electrons of one avalanche stay together. `False` or absent: every avalanche electron diffuses on its own with σ² = σ₀² + coefficient × z, as before. The total spot width is the same; the local charge density, and with it the GEM3 saturation, is higher with `True` |
+| **New key `sigma0_light`** ([:602](../src/TrackProcessor.cxx#L602)–624, [:1166](../src/TrackProcessor.cxx#L1166)) | Extra Gaussian blur, in mm, of the light of GEM3, applied to the camera image after the saturation and before vignetting and the Poisson draw. It does not change the saturation and does not act on the PMTs. Absent or 0: off |
+| **Fixed seed per batch** ([:849](../src/TrackProcessor.cxx#L849)) | With `fixed_seed: True`, each batch of hits gets its own seed |
+
+* **Values here:** upstream's `ConfigFile_new.txt` sets `primary_granularity: True`. The two CYGNO04 configs set
+  `primary_granularity: False` and `sigma0_light: 0.`, the model their diffusion and saturation values were tuned
+  with. Switching either on changes the simulated images; nothing else needs to change.
+* **Conflicts:** three. The dense route and the fixed-seed line are upstream's, with the TWIN lines put back
+  (decimal light per voxel, [:529](../src/TrackProcessor.cxx#L529); TWIN seeding, [:848](../src/TrackProcessor.cxx#L848)).
+  The drift interval stays in `DriftRange.h` (§3.1).
+* **Expected light (§4.6):** with `sigma0_light` > 0 the exported λ is the blurred one, the mean the Poisson draw uses.
+* **Tests:** `tests/run_twin_ml_tests.py` runs the fluorine sample with both options on: same seed, same record.
 
 ## 4. Changes, row by row
 
@@ -109,11 +138,11 @@ run only with `twin_cygno04_mode: True`; with it off, the standard path is the u
 | [DigitizationRunner.cxx:1052](../src/DigitizationRunner.cxx#L1052) | Light source | The response uses `energyDep_hits_QF` for electron and nuclear recoils alike |
 | [TwinPlacement.h:14](../include/TwinPlacement.h#L14), [:81](../include/TwinPlacement.h#L81) | Track placement | A hash of the parent ID and `twin_master_seed` picks one of 3 cameras and one XY shift that keeps **all** hits inside that camera's view and the GEM (up to 10000 tries). Z gets one uniform shift over the range that keeps the whole track between the GEM and `max_drift`; with `twin_depth_mm` the energy-weighted centroid is put at that depth instead. Another `variant_id` gives another depth draw with the same camera and XY |
 | [TwinPlacement.h:73](../include/TwinPlacement.h#L73)/[:77](../include/TwinPlacement.h#L77), [DigitizationRunner.cxx:1094](../src/DigitizationRunner.cxx#L1094), [:1246](../src/DigitizationRunner.cxx#L1246) | Two frames | The camera image is drawn in the chosen camera's own frame. PMT light is computed back in the GEM frame, so all 8 PMTs see the event where it really is |
-| [TrackProcessor.cxx:104](../src/TrackProcessor.cxx#L104), 206/295/411/487, [:600](../src/TrackProcessor.cxx#L600), [:605](../src/TrackProcessor.cxx#L605) | Photon counts as decimals | No rounding per voxel or pixel. The standard path still rounds, as upstream |
+| [TrackProcessor.cxx:148](../src/TrackProcessor.cxx#L148), 273/367/529, [:666](../src/TrackProcessor.cxx#L666), [:671](../src/TrackProcessor.cxx#L671) | Photon counts as decimals | No rounding per voxel or pixel. The standard path still rounds, as upstream |
 | [DigitizationRunner.cxx:1224](../src/DigitizationRunner.cxx#L1224) | PMT photoelectron yield | photons × `photons_per_el` × `twin_pmt_quantum_efficiency`. The standard path keeps upstream's fixed 0.0136 |
 | [TwinML.h:184](../include/TwinML.h#L184), [PMTHits.cxx:88](../src/PMTHits.cxx#L88) | Saturation and PMT truth | Light before and after GEM saturation, summed over the voxels of the track, and the expected photoelectrons per PMT (the sum of the Poisson means the collection samples from) |
 | [DigitizationRunner.cxx:1235](../src/DigitizationRunner.cxx#L1235), [:1253](../src/DigitizationRunner.cxx#L1253), [:1263](../src/DigitizationRunner.cxx#L1263), [TwinML.h:140](../include/TwinML.h#L140) | PMT timing | Drift times keep their sign (no `abs`). Time zero is the first photoelectron on any of the 8 PMTs, not the smallest z |
-| [TwinML.h:134](../include/TwinML.h#L134), [PMTHits.cxx:53](../src/PMTHits.cxx#L53), [PMTSignal.cxx:58](../src/PMTSignal.cxx#L58), [TrackProcessor.cxx:733](../src/TrackProcessor.cxx#L733), [DigitizationRunner.cxx:81](../src/DigitizationRunner.cxx#L81), [:848](../src/DigitizationRunner.cxx#L848) | Reproducibility | Separate named seeds for charge, collection, single-photoelectron pulses and electronics, all derived from the record seed. One thread. Same input and config give bit-identical output |
+| [TwinML.h:134](../include/TwinML.h#L134), [PMTHits.cxx:53](../src/PMTHits.cxx#L53), [PMTSignal.cxx:58](../src/PMTSignal.cxx#L58), [TrackProcessor.cxx:848](../src/TrackProcessor.cxx#L848), [DigitizationRunner.cxx:81](../src/DigitizationRunner.cxx#L81), [:848](../src/DigitizationRunner.cxx#L848) | Reproducibility | Separate named seeds for charge, collection, single-photoelectron pulses and electronics, all derived from the record seed. One thread. Same input and config give bit-identical output |
 | [PMTSignal.cxx:183](../src/PMTSignal.cxx#L183) | Noise | PMTs: seeded Gaussian noise, `twin_pmt_noise_rms_v` per sample; no templates are downloaded. Camera: no synthetic noise; the only camera noise is the real pedestal frame of `bckg: True` |
 | [DigitizationRunner.cxx:626](../src/DigitizationRunner.cxx#L626), [:638](../src/DigitizationRunner.cxx#L638) | Image file | Records always go to `digi_RunXXXXX.root`. With `redpix_output: False` the full images go to `histograms_RunXXXXX.root`, as integer counts like the standard digitizer's |
 | [DigitizationRunner.cxx:948](../src/DigitizationRunner.cxx#L948), [TwinML.h:194](../include/TwinML.h#L194) | Real pedestals | `bckg: True` uses the pedestal runs of `noiserun` (one or more) through the standard pedestal file. The frame is drawn from the record seed and saved as `pedestal_frame`. The file name must contain every run number, so a file built from other runs is never reused and the pools of different splits stay apart |
@@ -129,8 +158,8 @@ Off unless `save_expected_lambda: True`. The TWIN config switches it on.
 
 | Code | What changed | How |
 |---|---|---|
-| [TrackProcessor.cxx:578](../src/TrackProcessor.cxx#L578), [:595](../src/TrackProcessor.cxx#L595), [DigitizationRunner.cxx:699](../src/DigitizationRunner.cxx#L699), [:785](../src/DigitizationRunner.cxx#L785) | Expected light per pixel | Every pixel with expected light λ > 0 is written as `expected_ix`, `expected_iy`, `expected_lambda_e`: the expected number of detected photoelectrons **before** the Poisson draw, after vignetting, lens acceptance and quantum efficiency. Pixel indices are those of `redpix_ix/iy` and `obs_camera_ix/iy` |
-| [TrackProcessor.cxx:600](../src/TrackProcessor.cxx#L600) | Poisson draw | Uses the same λ. The number and the random draws are unchanged, in the standard path and in TWIN mode (merge conflict resolved here) |
+| [TrackProcessor.cxx:629](../src/TrackProcessor.cxx#L629), [:661](../src/TrackProcessor.cxx#L661), [DigitizationRunner.cxx:699](../src/DigitizationRunner.cxx#L699), [:785](../src/DigitizationRunner.cxx#L785) | Expected light per pixel | Every pixel with expected light λ > 0 is written as `expected_ix`, `expected_iy`, `expected_lambda_e`: the expected number of detected photoelectrons **before** the Poisson draw, after vignetting, lens acceptance and quantum efficiency. Pixel indices are those of `redpix_ix/iy` and `obs_camera_ix/iy` |
+| [TrackProcessor.cxx:666](../src/TrackProcessor.cxx#L666) | Poisson draw | Uses the same λ. The number and the random draws are unchanged, in the standard path and in TWIN mode (merge conflict resolved here) |
 | [DigitizationRunner.cxx:1182](../src/DigitizationRunner.cxx#L1182), [:1288](../src/DigitizationRunner.cxx#L1288) | Error paths | A skipped track and an invalid TWIN record have empty expected-light vectors |
 
 ## 5. What the digitizer writes
@@ -187,6 +216,7 @@ Types, units and which branches may be model inputs: [TWIN_SCHEMA.md](TWIN_SCHEM
 | Key | Default | Meaning |
 |---|---|---|
 | `min_drift`, `max_drift` | 0, 510 mm | Upstream keys. Deposits with z outside the interval are excluded from the response. Rule: `0 <= min_drift < max_drift`. `drift_length` is no longer accepted |
+| `primary_granularity`, `sigma0_light` | `False`, 0 | Upstream keys (§3.2): per-primary diffusion; blur of the GEM3 light in mm. Both CYGNO04 configs write the defaults explicitly |
 | `pmt_number` | 4 | Now 1–8 |
 | `pmt_noise` | `True` | `False` gives noiseless PMT waveforms |
 | `pmt_noise_channels` | identity | `';'`-separated PSD template channel per PMT |
@@ -195,7 +225,7 @@ Types, units and which branches may be model inputs: [TWIN_SCHEMA.md](TWIN_SCHEM
 | `twin_depth_mm` | absent: one uniform depth per track | TWIN only. Fixed depth of the charge centroid in mm, between 0 and `max_drift` (diagnostic set) |
 | `twin_cygno04_mode` | `False` | Enables TWIN. All `twin_*` keys, `variant_id` and the `REQUIRED` per-run inputs are documented inline in `ConfigFile_TWIN_CYGNO04.txt` |
 
-Each key is commented where it is used: [ConfigFile_new.txt:25](../config/ConfigFile_new.txt#L25), [:102](../config/ConfigFile_new.txt#L102)–104, [:135](../config/ConfigFile_new.txt#L135); [ConfigFile_CYGNO04_8PMT.txt:1](../config/ConfigFile_CYGNO04_8PMT.txt#L1)–12 (how to switch camera) and [:115](../config/ConfigFile_CYGNO04_8PMT.txt#L115)–122.
+Each key is commented where it is used: [ConfigFile_new.txt:27](../config/ConfigFile_new.txt#L27), [:104](../config/ConfigFile_new.txt#L104)–106, [:137](../config/ConfigFile_new.txt#L137); [ConfigFile_CYGNO04_8PMT.txt:1](../config/ConfigFile_CYGNO04_8PMT.txt#L1)–12 (how to switch camera) and [:117](../config/ConfigFile_CYGNO04_8PMT.txt#L117)–124.
 
 ## 7. CYGNO04 geometry and PMT positions (`CYGNO04_CAD_v1`)
 
@@ -270,8 +300,6 @@ Other sources:
 
 * **Not tested here:** the full CMake build with ROOTANA and OpenCV (pedestal download, measured PSD noise
   IFFT), and real CYGNO-MC files. All tests in §10 and the §2 comparison use stubs for these two libraries only.
-* **After the `batman` merge:** the §2 comparison with upstream was not repeated. The standard path draws the
-  same Poisson numbers from the same λ, so it is unchanged by construction, not by a new measurement.
 * **Calibration gaps:**
   * the TWIN config names the Davide–Melba map `vignette_ORCA_calibrated.root`, which is **not in the repository**:
     it is kept on the CNAF cluster and must be copied by hand into `VignettingMap/` before running. It has not
@@ -302,4 +330,5 @@ python3 tests/run_pmt_tests.py [--without-opencv]   # 4 and 8 PMTs, noise switch
 python3 tests/run_twin_ml_tests.py                  # actual runner in TWIN mode, 8 waveforms, reproducibility
 c++ -std=c++17 -Iinclude tests/test_twin.cxx src/PMTHits.cxx -o /tmp/t && /tmp/t
 c++ -std=c++17 -Iinclude tests/test_cygno04_geometry.cxx src/ConfigManager.cxx src/PMTHits.cxx $(root-config --cflags --libs) -o /tmp/g && /tmp/g   # configs match the CAD values
+python3 tests/compare_with_upstream.py <upstream checkout>   # standard path against upstream main, pixel by pixel (§2); 5 minutes
 ```
